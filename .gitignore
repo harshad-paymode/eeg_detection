@@ -21,3 +21,4 @@ t_tests.ipynb
 plots/
 saved_res/
 checkpoints*/
+*.json
