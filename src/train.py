@@ -35,17 +35,17 @@ os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 torch.backends.cudnn.benchmark = False
 torch.set_float32_matmul_precision("medium")
 parser = ArgumentParser()
-parser.add_argument("--timestep", type=int, default=6)
-parser.add_argument("--ictal_overlap", type=int, default=0)
-parser.add_argument("--inter_overlap", type=int, default=0)
+parser.add_argument("--timestep", type=int, default=6)  # 6 seconds sample are constructed from ictal samples.
+parser.add_argument("--ictal_overlap", type=int, default=0) # In the paper 5 seconds overlap is used.
+parser.add_argument("--inter_overlap", type=int, default=0) 
 parser.add_argument("--preictal_overlap", type=int, default=0)
-parser.add_argument("--seizure_lookback", type=int, default=600)
-parser.add_argument("--buffer_time", type=int, default=15)
+parser.add_argument("--seizure_lookback", type=int, default=600) # this time is considered for preictal periods.
+parser.add_argument("--buffer_time", type=int, default=15) # buffer time is to discard the sample before and after seizures
 parser.add_argument("--sampling_freq", type=int, default=256)
 parser.add_argument("--downsampling_freq", type=int, default=60)
 parser.add_argument("--smote", action="store_true", default=False)
-parser.add_argument("--weights", action="store_true", default=False)
-parser.add_argument("--undersample", action="store_true", default=False)
+parser.add_argument("--weights", action="store_true", default=False) 
+parser.add_argument("--undersample", action="store_true", default=False) 
 parser.add_argument("--train_test_split", type=float, default=0.0)
 parser.add_argument("--fft", action="store_true", default=False)
 parser.add_argument("--mne_features", action="store_true", default=False)
@@ -131,6 +131,7 @@ INITIAL_CONFIG = dict(
 
 
 def loso_training():
+    """Leave one subject out training """
     """Initialize loso training."""
     wandb.init(
         config=INITIAL_CONFIG,
@@ -207,6 +208,8 @@ def loso_training():
             save_top_k=1,
             mode="min",
             verbose=False,
+            # dirpath = f"saved_models_lost/{loso_patient}",
+            # filename = "best-checkpoint"
         )
         callbacks = [early_stopping, best_checkpoint_callback]
         trainer = pl.Trainer(

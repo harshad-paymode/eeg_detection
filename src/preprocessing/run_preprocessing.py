@@ -8,11 +8,11 @@ from argparse import ArgumentParser
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--data_path", type=str, required=True)
-    parser.add_argument("--event_tables_path", type=str, required=True)
-    parser.add_argument("--preprocessed_edf_path", type=str, required=True)
-    parser.add_argument("--final_npy_path", type=str, required=True)
-    parser.add_argument("--annotation_files_path", type=str, required=True)
+    parser.add_argument("--data_path", type=str, required=True)    #Path to the raw/original data
+    parser.add_argument("--event_tables_path", type=str, required=True)  #Path to raw/original dataset
+    parser.add_argument("--preprocessed_edf_path", type=str, required=True) #Path to save pre processed edf files of every recording for each patient
+    parser.add_argument("--final_npy_path", type=str, required=True) #Saves every edf file as numpy file
+    parser.add_argument("--annotation_files_path", type=str, required=True) #Path to record file which contatins names of seizure files for each patient.
     args = parser.parse_args()
     data_path = Path(args.data_path)
     event_tables_path = Path(args.event_tables_path)
