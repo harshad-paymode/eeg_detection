@@ -1188,7 +1188,7 @@ class HDFDatasetLoader:
             n_samples,
             test_size=self.train_val_split_ratio,
             shuffle=True,
-            stratify=labels,
+            stratify=None,
             random_state=self.seed,
         )
         train_indices = np.sort(train_indices)
