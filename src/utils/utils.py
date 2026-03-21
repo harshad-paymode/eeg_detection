@@ -275,9 +275,9 @@ def preprocess_dataset_all(
     """
     subjects_with_seizures = []
     with open(subjects_with_seizures_path, "r") as f:
-        subjects_with_seizures = [line.strip() for line in f if 'chb01' in line]
+        subjects_with_seizures = [line.strip() for line in f if 'chb06' in line]
     for folder in os.listdir(dataset_path):
-        if folder not in ['chb01']:
+        if folder not in ['chb06']:
             continue
         for file in os.listdir(os.path.join(dataset_path, folder)):
             if file.endswith(".edf"):
@@ -286,6 +286,7 @@ def preprocess_dataset_all(
                         os.path.join(dataset_path, folder, file)
                     )
                     if raw_file is None:
+                        print(f"!!! SKIPPING {file}: load_and_dump_channels returned None (check channel names)")
                         continue
                 except Exception:
                     print(f"Subject {folder}/{file} not found.")
