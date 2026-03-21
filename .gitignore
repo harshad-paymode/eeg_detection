@@ -1,7 +1,6 @@
 sano_venv/
 __pycache__
 npy_data/
-data/
 .ipynb_checkpoints/
 event_tables/
 lightning_logs/
