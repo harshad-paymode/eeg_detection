@@ -1473,7 +1473,7 @@ class HDFDatasetLoader:
 
         try:
             if self.train_val_split_ratio > 0:
-                pool.map_async(
+                pool.map(
                     self._get_single_patient_data_train_val,
                     self.patient_list,
                 )
@@ -1485,7 +1485,7 @@ class HDFDatasetLoader:
                 self.logger.info("Train and validation data loaded.")
 
             else:
-                pool.map_async(
+                pool.map(
                     self._get_single_patient_data, self.patient_list
                 )
                 pool.close()
