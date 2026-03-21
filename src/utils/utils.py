@@ -86,7 +86,7 @@ standard_channel_order = [
 
 
 def remove_channels_dummy(ch_name):
-    if re.findall("--", ch_name) or re.findall("\.", ch_name):
+    if re.findall("--", ch_name) or re.findall(r"\.", ch_name):
         print(f"Removing channel {ch_name}")
         return True
     return False
@@ -535,7 +535,7 @@ def get_patient_annotations(path_to_file: Path, savedir: Path):
     raw_txt_lines = raw_txt.readlines()
     event_dict_start = dict()
     event_dict_stop = dict()
-    p = "[\d]+"
+    p = r"[\d]+"
     for n, line in enumerate(raw_txt_lines):
         if "File Name" in line:
             current_file_name = line.split(": ")[1][:-1]
