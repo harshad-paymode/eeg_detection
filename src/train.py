@@ -208,14 +208,15 @@ def loso_training():
             save_top_k=1,
             mode="min",
             verbose=False,
-            # dirpath = f"saved_models_lost/{loso_patient}",
-            # filename = "best-checkpoint"
+            dirpath = f"saved_models_lost/{loso_patient}",
+            filename = "best-checkpoint"
         )
         callbacks = [early_stopping, best_checkpoint_callback]
         trainer = pl.Trainer(
             accelerator="auto",
             precision=precision,
-            devices=1,
+            devices=2,
+            strategy = "ddp_notebook",
             max_epochs=EPOCHS,
             enable_progress_bar=True,
             strategy=strategy,
@@ -271,6 +272,7 @@ def loso_training():
             result_list = [eval_results["loso_AUROC"]]
         else:
             result_list.append(eval_results["loso_AUROC"])
+        print(f"Training done for patient {loso_patient}")
     mean_auroc = mean(result_list)
     stdev_auroc = round(stdev(result_list), 4)
     measured_auroc = mean_auroc * (1 / stdev_auroc)

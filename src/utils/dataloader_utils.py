@@ -360,7 +360,7 @@ class HDFDataset_Writer:
             stop_event_tables = self._get_recording_events(
                 event_tables[1], record_id
             )  # get stop events
-            data_array = np.load(recording_path)  # load the recording
+            data_array = np.load(recording_path)["data"]  # load the recording
 
             (
                 features,
@@ -519,7 +519,7 @@ class HDFDataset_Writer:
 
         for n, record in enumerate(recording_list):
             recording_path = os.path.join(patient_path, record)
-            data_array = np.expand_dims(np.load(recording_path), 1)
+            data_array = np.expand_dims(np.load(recording_path)["data"], 1)
             try:
                 (
                     features,
