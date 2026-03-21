@@ -353,7 +353,7 @@ class HDFDataset_Writer:
             record = record.replace(
                 "seizures_", ""
             )  # some magic to get it properly working with event tables
-            record_id = record.split(".npy")[0]  # get record id
+            record_id = record.split(".npz")[0]  # get record id
             start_event_tables = self._get_recording_events(
                 event_tables[0], record_id
             )  # get start events
