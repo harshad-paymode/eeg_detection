@@ -275,10 +275,8 @@ def preprocess_dataset_all(
     """
     subjects_with_seizures = []
     with open(subjects_with_seizures_path, "r") as f:
-        subjects_with_seizures = [line.strip() for line in f if 'chb06' in line]
+        subjects_with_seizures = [line.strip() for line in f]
     for folder in os.listdir(dataset_path):
-        if folder not in ['chb06']:
-            continue
         for file in os.listdir(os.path.join(dataset_path, folder)):
             if file.endswith(".edf"):
                 try:
@@ -302,18 +300,18 @@ def preprocess_dataset_all(
                 )
                 if os.path.join(folder, file) in subjects_with_seizures:
                     save_path = os.path.join(
-                        preprocessed_dirpath, folder, "seizures_" + file.replace(".edf",".npy")
+                        preprocessed_dirpath, folder, "seizures_" + file.replace(".edf",".npz")
                     )
                 else:
                     save_path = os.path.join(
-                        preprocessed_dirpath, folder, file.replace(".edf",".npy")
+                        preprocessed_dirpath, folder, file.replace(".edf",".npz")
                     )
                 if not os.path.exists(os.path.split(save_path)[0]):
                     os.mkdir(os.path.split(save_path)[0])
                 
                 eeg_data = raw_instance.get_data()
                 # mne.export.export_raw(save_path, raw_instance, fmt="edf")
-                np.save(save_path, eeg_data)
+                np.savez_compressed(save_path, data=eeg_data)
                 print(f"Finished preprocessing subject {folder}/{file}.")
     return None
 
