@@ -1521,7 +1521,7 @@ class GraphDataset:
         return len(self._data_list) if self._data_list is not None else 0
 
     def _load(self) -> None:
-        data, slices = zip(*[torch.load(path) for path in self.object_paths])
+        data, slices = zip(*[torch.load(path, weights_only=False) for path in self.object_paths])
         data_list = []
         for n in range(len(data)):
             data_temp = data[n]
