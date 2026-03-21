@@ -1184,13 +1184,23 @@ class HDFDatasetLoader:
             val_indices: (np.ndarray) Array with indices for validation.
         """
 
-        train_indices, val_indices = train_test_split(
-            n_samples,
-            test_size=self.train_val_split_ratio,
-            shuffle=True,
-            stratify=None,
-            random_state=self.seed,
-        )
+        try:
+            train_indices, val_indices = train_test_split(
+                n_samples,
+                test_size=self.train_val_split_ratio,
+                shuffle=True,
+                stratify=labels,  # Try strict stratification first
+                random_state=self.seed,
+            )
+        except ValueError:
+            self.logger.warning("Stratify failed (class with < 2 samples). Using random split for this patient.")
+            train_indices, val_indices = train_test_split(
+                n_samples,
+                test_size=self.train_val_split_ratio,
+                shuffle=True,
+                stratify=None,    # Safe fallback
+                random_state=self.seed,
+            )
         train_indices = np.sort(train_indices)
         val_indices = np.sort(val_indices)
         return train_indices, val_indices
