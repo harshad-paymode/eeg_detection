@@ -1363,7 +1363,7 @@ class HDFDatasetLoader:
             )
 
         data_list_train = self._features_to_data_list(
-            features_train, edge_idx_train, labels_train, time_labels_val
+            features_train, edge_idx_train, labels_train, time_labels_train
         )
         data_list_val = self._features_to_data_list(
             features_val, edge_idx_val, labels_val, time_labels_val
