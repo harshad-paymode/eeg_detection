@@ -279,6 +279,8 @@ def preprocess_dataset_all(
     ]
 
     for folder in os.listdir(dataset_path):
+        if folder.startswith('.') or folder == 'virtual_documents':
+            continue
         for file in os.listdir(os.path.join(dataset_path, folder)):
             if file.endswith(".edf"):
                 try:
@@ -590,6 +592,8 @@ def get_patient_annotations(path_to_file: Path, savedir: Path):
 def get_annotation_files(dataset_path, dst_path):
     patient_folders = os.listdir(dataset_path)
     for folder in patient_folders:
+        if folder.startswith('.') or folder == 'virtual_documents':
+            continue
         patient_folder_path = os.path.join(dataset_path, folder)
         if os.path.isdir(patient_folder_path):
             patient_files = os.listdir(patient_folder_path)
