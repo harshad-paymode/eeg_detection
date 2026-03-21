@@ -301,15 +301,18 @@ def preprocess_dataset_all(
                 )
                 if os.path.join(folder, file) in subjects_with_seizures:
                     save_path = os.path.join(
-                        preprocessed_dirpath, folder, "seizures_" + file
+                        preprocessed_dirpath, folder, "seizures_" + file.replace(".edf",".npy")
                     )
                 else:
                     save_path = os.path.join(
-                        preprocessed_dirpath, folder, file
+                        preprocessed_dirpath, folder, file.replace(".edf",".npy")
                     )
                 if not os.path.exists(os.path.split(save_path)[0]):
                     os.mkdir(os.path.split(save_path)[0])
-                mne.export.export_raw(save_path, raw_instance, fmt="edf")
+                
+                eeg_data = raw_instance.get_data()
+                # mne.export.export_raw(save_path, raw_instance, fmt="edf")
+                np.save(save_path, eeg_data)
                 print(f"Finished preprocessing subject {folder}/{file}.")
     return None
 
