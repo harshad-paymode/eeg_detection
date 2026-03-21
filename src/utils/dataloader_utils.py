@@ -1343,10 +1343,12 @@ class HDFDatasetLoader:
             features_train = hdf5_file[patient]["features"][train_indices]
             labels_train = hdf5_file[patient]["labels"][train_indices]
             edge_idx_train = hdf5_file[patient]["edge_idx"][train_indices]
+            time_labels_train = hdf5_file[patient]["time_labels"][train_indices] # <-- ADD THIS
 
             features_val = hdf5_file[patient]["features"][val_indices]
             labels_val = hdf5_file[patient]["labels"][val_indices]
             edge_idx_val = hdf5_file[patient]["edge_idx"][val_indices]
+            time_labels_val = hdf5_file[patient]["time_labels"][val_indices] # <-- ADD THIS
 
         if sum(self.used_classes_dict.values()) < 3:
             (
@@ -1357,16 +1359,16 @@ class HDFDatasetLoader:
                 features_train, labels_train, edge_idx_train
             )
             features_val, labels_val, edge_idx_val = self.update_classes(
-                features_val, labels_val, edge_idx_val
+                features_val, labels_val, edge_idx_val, time_labels_train
             )
 
         data_list_train = self._features_to_data_list(
-            features_train, edge_idx_train, labels_train
+            features_train, edge_idx_train, labels_train, time_labels_val
         )
         data_list_val = self._features_to_data_list(
             features_val, edge_idx_val, labels_val
         )
-
+        
         data_list_train, slices_train = collate_datalist(data_list_train)
         data_list_val, slices_val = collate_datalist(data_list_val)
         savepath_train = os.path.join(
