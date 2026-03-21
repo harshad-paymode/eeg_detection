@@ -216,7 +216,7 @@ def loso_training():
             accelerator="auto",
             precision=precision,
             devices=2,
-            strategy = "ddp",
+            strategy = "ddp_spawn",
             max_epochs=EPOCHS,
             enable_progress_bar=True,
             deterministic=False,
