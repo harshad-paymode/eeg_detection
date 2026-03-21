@@ -275,8 +275,10 @@ def preprocess_dataset_all(
     """
     subjects_with_seizures = []
     with open(subjects_with_seizures_path, "r") as f:
-        subjects_with_seizures = [line.strip() for line in f]
+        subjects_with_seizures = [line.strip() for line in f if 'chb06' in line or 'chb12' in line or 'chb10' in line]
     for folder in os.listdir(dataset_path):
+        if folder not in ['chb06','chb10','chb12']:
+            continue
         for file in os.listdir(os.path.join(dataset_path, folder)):
             if file.endswith(".edf"):
                 try:
