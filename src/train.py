@@ -208,7 +208,7 @@ def loso_training():
             save_top_k=1,
             mode="min",
             verbose=False,
-            dirpath = f"saved_models_lost/{loso_patient}",
+            dirpath = f"saved_models_last/{loso_patient}",
             filename = "best-checkpoint"
         )
         callbacks = [early_stopping, best_checkpoint_callback]
@@ -268,9 +268,9 @@ def loso_training():
         wandb.define_metric("loso_specificity", step_metric="patient")
         wandb.define_metric("loso_AUROC", step_metric="patient")
         if n == 0:
-            result_list = [eval_results["loso_AUROC"]]
+            result_list = [eval_results["test_AUROC"]]
         else:
-            result_list.append(eval_results["loso_AUROC"])
+            result_list.append(eval_results["test_AUROC"])
         print(f"Training done for patient {loso_patient}")
     mean_auroc = mean(result_list)
     stdev_auroc = round(stdev(result_list), 4)
