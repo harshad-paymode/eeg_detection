@@ -273,13 +273,11 @@ def preprocess_dataset_all(
         dataset_path: path to a folder containing all patient folders.
         preprocessed_dirpath: path to folder in which preprocessed files will be saved.
     """
-    subjects_with_seizures = [
-        subject[:-1]
-        for subject in open(subjects_with_seizures_path, "r").readlines()
-    ]
-
+    subjects_with_seizures = []
+    with open(subjects_with_seizures_path, "r") as f:
+        subjects_with_seizures = [line.strip() for line in f if 'chb01' in line or 'chb06' in line]
     for folder in os.listdir(dataset_path):
-        if folder.startswith('.') or folder == 'virtual_documents':
+        if folder not in ['chb01','chb06']:
             continue
         for file in os.listdir(os.path.join(dataset_path, folder)):
             if file.endswith(".edf"):
