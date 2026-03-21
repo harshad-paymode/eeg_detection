@@ -198,7 +198,7 @@ def loso_training():
 
         device_name = "cuda:0" if torch.cuda.is_available() else "cpu"
         precision = "bf16-mixed" if device_name == "cpu" else "16-mixed"
-        # strategy = pl.strategies.SingleDeviceStrategy(device=device_name)
+        strategy = pl.strategies.SingleDeviceStrategy(device=device_name)
         wandb_logger = pl.loggers.WandbLogger(log_model=False)
         early_stopping = pl.callbacks.EarlyStopping(
             monitor="val_loss", patience=10, verbose=False, mode="min"
@@ -215,8 +215,8 @@ def loso_training():
         trainer = pl.Trainer(
             accelerator="auto",
             precision=precision,
-            devices=2,
-            strategy = "ddp_spawn",
+            devices=1,
+            strategy = "auto",
             max_epochs=EPOCHS,
             enable_progress_bar=True,
             deterministic=False,
