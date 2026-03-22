@@ -218,7 +218,7 @@ def loso_training():
             devices=1,
             strategy = "auto",
             max_epochs=EPOCHS,
-            enable_progress_bar=True,
+            enable_progress_bar=False,
             deterministic=False,
             log_every_n_steps=0,
             enable_model_summary=False,
