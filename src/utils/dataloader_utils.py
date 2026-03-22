@@ -55,7 +55,7 @@ except Exception:
     print("The script was by default created for SLURM environment.")
     CPUS_PER_TASK = mp.cpu_count()
 
-CTX = mp.get_context("fork")
+CTX = mp.get_context("spawn")
 
 
 def collate_datalist(
