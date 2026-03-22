@@ -220,7 +220,7 @@ def loso_training():
             max_epochs=EPOCHS,
             enable_progress_bar=True,
             deterministic=False,
-            log_every_n_steps=1,
+            log_every_n_steps=0,
             enable_model_summary=False,
             logger=wandb_logger,
             callbacks=callbacks,
