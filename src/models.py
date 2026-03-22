@@ -337,7 +337,7 @@ class GATv2Lightning(pl.LightningModule):
             on_step=False,
             on_epoch=True,
             logger=True,
-            prog_bar=True,
+            prog_bar=False,
             batch_size=batch_size,
         )
         return loss
@@ -377,7 +377,7 @@ class GATv2Lightning(pl.LightningModule):
             on_step=False,
             on_epoch=True,
             logger=True,
-            prog_bar=True,
+            prog_bar=False,
             batch_size=batch_size,
         )
         return loss
