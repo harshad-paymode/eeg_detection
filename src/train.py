@@ -12,7 +12,7 @@ from torch_geometric.loader import DataLoader
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.utils.class_weight import compute_class_weight
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
-
+from lightning.pytorch.callbacks import TQDMProgressBar
 
 from models import GATv2Lightning
 from utils.dataloader_utils import (
@@ -211,16 +211,19 @@ def loso_training():
             dirpath = f"saved_models_last/{loso_patient}",
             filename = "best-checkpoint"
         )
-        callbacks = [early_stopping, best_checkpoint_callback]
+        # Set refresh rate higher than your total batches (127)
+        progress_bar = TQDMProgressBar(refresh_rate=150) 
+        callbacks = [early_stopping, best_checkpoint_callback, progress_bar]
+
         trainer = pl.Trainer(
             accelerator="auto",
             precision=precision,
             devices=1,
             strategy = "auto",
             max_epochs=EPOCHS,
-            enable_progress_bar=False,
+            enable_progress_bar=True,
             deterministic=False,
-            log_every_n_steps=0,
+            log_every_n_steps=50,
             enable_model_summary=False,
             logger=wandb_logger,
             callbacks=callbacks,
