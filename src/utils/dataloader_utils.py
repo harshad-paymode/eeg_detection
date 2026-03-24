@@ -443,7 +443,7 @@ class HDFDataset_Writer:
             return patient, None, None, None, None, 0, 0
 
         # Return arrays directly to the main thread
-        return patient, features_patient, labels_patient, edge_idx_patient, time_labels_patient, preictal_samples, sample_count
+        return patient, features_patient.astype(np.float16), labels_patient, edge_idx_patient, time_labels_patient, preictal_samples, sample_count
 
     def _get_labels_features_edge_weights_interictal(
         self, patient, samples_patient: Union[int, None] = None
@@ -582,7 +582,7 @@ class HDFDataset_Writer:
             return patient, None, None, None, None
             
         # Simply return the arrays to the main thread instead of fighting over the file lock
-        return patient, features_patient, labels_patient, edge_idx_patient, time_labels_patient
+        return patient, features_patient.astype(np.float16), labels_patient, edge_idx_patient, time_labels_patient
 
         # while True:
         #     try:
