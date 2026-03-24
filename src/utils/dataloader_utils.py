@@ -635,6 +635,11 @@ class HDFDataset_Writer:
                 except Exception as e:
                     self.logger.error(f"Cannot create dataset for patient {patient}: {e}")
 
+                # FIX 2: Force RAM to clear immediately after writing to the file
+                del features_patient, labels_patient, edge_idx_patient, time_labels_patient
+                import gc
+                gc.collect()
+
         pool.close()
         pool.join()
         if pool:
@@ -687,6 +692,11 @@ class HDFDataset_Writer:
                 
                 except Exception as e:
                     self.logger.error(f"Cannot append {patient}: {e}")
+                
+                # FIX 2: Force RAM to clear immediately after writing to the file
+                del features_patient, labels_patient, edge_idx_patient, time_labels_patient
+                import gc
+                gc.collect()
 
         pool.close()
         pool.join()
