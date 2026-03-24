@@ -38,8 +38,8 @@ scikit-learn
 scipy
 sentry-sdk
 Serialize
-# torch==2.1.0
-# torch_geometric==2.4.0
-# torchmetrics==1.2.0
-# torchvision==0.16.0
+torch
+torch_geometric
+torchmetrics
+torchvision
 wandb
