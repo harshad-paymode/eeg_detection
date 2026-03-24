@@ -353,14 +353,14 @@ class HDFDataset_Writer:
             record = record.replace(
                 "seizures_", ""
             )  # some magic to get it properly working with event tables
-            record_id = record.split(".npz")[0]  # get record id
+            record_id = record.split(".npy")[0]  # get record id
             start_event_tables = self._get_recording_events(
                 event_tables[0], record_id
             )  # get start events
             stop_event_tables = self._get_recording_events(
                 event_tables[1], record_id
             )  # get stop events
-            data_array = np.load(recording_path)["data"]  # load the recording
+            data_array = np.load(recording_path)  # load the recording
 
             (
                 features,
@@ -519,7 +519,7 @@ class HDFDataset_Writer:
 
         for n, record in enumerate(recording_list):
             recording_path = os.path.join(patient_path, record)
-            data_array = np.expand_dims(np.load(recording_path)["data"], 1)
+            data_array = np.expand_dims(np.load(recording_path), 1)
             try:
                 (
                     features,
