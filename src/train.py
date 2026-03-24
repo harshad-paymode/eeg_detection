@@ -222,7 +222,7 @@ def loso_training():
 
         trainer = pl.Trainer(
             accelerator="auto",
-            precision="bf16-mixed",
+            precision="bf16-true",
             devices=1,
             strategy = "auto",
             max_epochs=EPOCHS,
