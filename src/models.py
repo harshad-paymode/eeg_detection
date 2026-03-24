@@ -237,10 +237,8 @@ class GATv2Lightning(pl.LightningModule):
         self.weight_decay = weight_decay
         if class_weights is None:
             class_weights = torch.ones(n_classes)
-        # self.class_weights = class_weights
+        self.class_weights = class_weights
 
-        # Register the class weights so Lightning moves them to the active device
-        self.register_buffer("class_weights", class_weights)
         if self.classification_mode == "multiclass":
             self.f1_score = F1Score(task="multiclass", num_classes=n_classes)
             self.loss = nn.CrossEntropyLoss(weight=self.class_weights)
