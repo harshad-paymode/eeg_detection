@@ -306,8 +306,7 @@ def preprocess_dataset_all(
                     save_path = os.path.join(
                         preprocessed_dirpath, folder, file.replace(".edf",".npz")
                     )
-                if not os.path.exists(os.path.split(save_path)[0]):
-                    os.mkdir(os.path.split(save_path)[0])
+                os.makedirs(save_path, exist_ok = True)
                 
                 eeg_data = raw_instance.get_data()
                 # mne.export.export_raw(save_path, raw_instance, fmt="edf")
