@@ -298,6 +298,8 @@ def preprocess_dataset_all(
                     freq_l=0.5,
                     freq_h=30.0,
                 )
+                os.makedirs(os.path.join(preprocessed_dirpath, folder), exist_ok = True)
+                
                 if os.path.join(folder, file) in subjects_with_seizures:
                     save_path = os.path.join(
                         preprocessed_dirpath, folder, "seizures_" + file.replace(".edf",".npz")
@@ -306,7 +308,6 @@ def preprocess_dataset_all(
                     save_path = os.path.join(
                         preprocessed_dirpath, folder, file.replace(".edf",".npz")
                     )
-                os.makedirs(save_path, exist_ok = True)
                 
                 eeg_data = raw_instance.get_data()
                 # mne.export.export_raw(save_path, raw_instance, fmt="edf")
