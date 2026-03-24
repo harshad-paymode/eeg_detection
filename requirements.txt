@@ -38,9 +38,9 @@ scikit-learn
 scipy
 sentry-sdk
 Serialize
-torch
-torch_geometric
-torchmetrics
-torchvision
+# torch
+# torch_geometric
+# torchmetrics
+# torchvision
+# torch_xla
 wandb
-torch_xla
