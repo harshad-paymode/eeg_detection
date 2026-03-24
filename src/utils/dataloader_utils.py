@@ -584,69 +584,6 @@ class HDFDataset_Writer:
         # Simply return the arrays to the main thread instead of fighting over the file lock
         return patient, features_patient.astype(np.float16), labels_patient, edge_idx_patient, time_labels_patient
 
-        # while True:
-        #     try:
-        #         with h5py.File(self.dataset_path, "a") as hdf5_file:
-        #             current_patient_features = hdf5_file[patient][
-        #                 "features"
-        #             ].shape[0]
-        #             current_patient_labels = hdf5_file[patient][
-        #                 "labels"
-        #             ].shape[0]
-        #             current_patient_edge_idx = hdf5_file[patient][
-        #                 "edge_idx"
-        #             ].shape[0]
-        #             current_patient_time_labels = hdf5_file[patient][
-        #                 "time_labels"
-        #             ].shape[0]
-        #             hdf5_file[patient]["features"].resize(
-        #                 (current_patient_features + features_patient.shape[0]),
-        #                 axis=0,
-        #             )
-        #             hdf5_file[patient]["features"][
-        #                 -features_patient.shape[0] :
-        #             ] = features_patient
-        #             hdf5_file[patient]["labels"].resize(
-        #                 (current_patient_labels + labels_patient.shape[0]),
-        #                 axis=0,
-        #             )
-        #             hdf5_file[patient]["labels"][
-        #                 -labels_patient.shape[0] :
-        #             ] = labels_patient
-
-        #             hdf5_file[patient]["time_labels"].resize(
-        #                 (
-        #                     current_patient_time_labels
-        #                     + time_labels_patient.shape[0]
-        #                 ),
-        #                 axis=0,
-        #             )
-        #             hdf5_file[patient]["time_labels"][
-        #                 -time_labels_patient.shape[0] :
-        #             ] = time_labels_patient
-
-        #             hdf5_file[patient]["edge_idx"].resize(
-        #                 (current_patient_edge_idx + edge_idx_patient.shape[0]),
-        #                 axis=0,
-        #             )
-        #             hdf5_file[patient]["edge_idx"][
-        #                 -edge_idx_patient.shape[0] :
-        #             ] = edge_idx_patient
-        #             self.logger.info(
-        #                 f"Dataset for patient {patient} appended successfully!."
-        #             )
-        #         break
-        #     except BlockingIOError:
-        #         self.logger.warning(f"Waiting for appending of {patient}.")
-        #         continue
-        #     except UnboundLocalError:
-        #         self.logger.warning(
-        #             f"Cannot append {patient}, record {record}."
-        #         )
-        #         return 0
-
-        # return features_patient.shape[0]
-
     def _multiprocess_seizure_period_data_loading(self):
         num_processes = CPUS_PER_TASK  # mp.cpu_count()
         pool = mp.Pool(processes=num_processes)
@@ -709,7 +646,7 @@ class HDFDataset_Writer:
         self.logger.info(num_processes)
         pool = mp.Pool(processes=num_processes)
 
-        results = pool.map(
+        results = pool.imap_unordered(
             self._get_labels_features_edge_weights_interictal,
             self.patient_list,
         )
