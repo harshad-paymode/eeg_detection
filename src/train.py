@@ -158,7 +158,7 @@ def loso_training():
 
         # print(f"Print the cache path {cache_file_path}")
 
-        cache_file_path = "/kaggle/working/eeg_detection/data/cache/2026-03-23_14-51-07"
+        cache_file_path = "/kaggle/working/eeg_detection/data/cache/2026-03-23_14-51-07/"
 
         loader = HDFDatasetLoader(
             root=cache_file_path,
