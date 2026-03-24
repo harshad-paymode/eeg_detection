@@ -237,10 +237,13 @@ class GATv2Lightning(pl.LightningModule):
         self.weight_decay = weight_decay
         if class_weights is None:
             class_weights = torch.ones(n_classes)
-        self.class_weights = class_weights
+        # self.class_weights = class_weights
+
+        # Register the class weights so Lightning moves them to the active device
+        self.register_buffer("class_weights", class_weights)
         if self.classification_mode == "multiclass":
             self.f1_score = F1Score(task="multiclass", num_classes=n_classes)
-            self.loss = nn.CrossEntropyLoss(weight=class_weights)
+            self.loss = nn.CrossEntropyLoss(weight=self.class_weights)
             self.recall = Recall(
                 task="multiclass", num_classes=n_classes, threshold=0.5
             )
@@ -250,7 +253,7 @@ class GATv2Lightning(pl.LightningModule):
             self.auroc = AUROC(task="multiclass", num_classes=n_classes)
         elif self.classification_mode == "binary":
             self.f1_score = F1Score(task="binary", threshold=0.5)
-            self.loss = nn.BCEWithLogitsLoss(pos_weight=class_weights)
+            self.loss = nn.BCEWithLogitsLoss(pos_weight=self.class_weights)
             self.recall = Recall(task="binary", threshold=0.5)
             self.specificity = Specificity(task="binary", threshold=0.5)
             self.auroc = AUROC(task="binary")

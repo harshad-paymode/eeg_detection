@@ -43,3 +43,4 @@ torch_geometric
 torchmetrics
 torchvision
 wandb
+torch_xla
