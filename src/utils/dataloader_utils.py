@@ -443,7 +443,7 @@ class HDFDataset_Writer:
             return patient, None, None, None, None, 0, 0
 
         # Return arrays directly to the main thread
-        return patient, features_patient.astype(np.float32), labels_patient, edge_idx_patient, time_labels_patient, preictal_samples, sample_count
+        return patient, features_patient, labels_patient, edge_idx_patient, time_labels_patient, preictal_samples, sample_count
 
     def _get_labels_features_edge_weights_interictal(
         self, patient, samples_patient: Union[int, None] = None
@@ -582,7 +582,7 @@ class HDFDataset_Writer:
             return patient, None, None, None, None
             
         # Simply return the arrays to the main thread instead of fighting over the file lock
-        return patient, features_patient.astype(np.float32), labels_patient, edge_idx_patient, time_labels_patient
+        return patient, features_patient, labels_patient, edge_idx_patient, time_labels_patient
 
     def _multiprocess_seizure_period_data_loading(self):
         num_processes = CPUS_PER_TASK  # mp.cpu_count()
@@ -816,7 +816,7 @@ class HDFDatasetLoader:
         #         shutil.rmtree(main_root_dir)
         # except FileNotFoundError:
         #     self.logger.info("No processed cache found.")
-        
+
         if not os.path.exists(main_root_dir):
             os.makedirs(main_root_dir)
             self.logger.info("Created processed cache folder.")
