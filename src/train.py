@@ -129,51 +129,102 @@ INITIAL_CONFIG = dict(
     weight_decay=0.0078,
 )
 
+#Pre precossing and saving the data to GCP bucket.
 
-def loso_training():
-    """Leave one subject out training """
-    """Initialize loso training."""
-    wandb.init(
-        config=INITIAL_CONFIG,
+def offline_dataset_generation():
+    """Generates and saves train/val/test splits for all patients offline."""
+    
+    # 1. Create the Master HDF5 once (Outside the loop)
+    writer = HDFDataset_Writer(
+        seizure_lookback=SEIZURE_LOOKBACK,
+        buffer_time=BUFFER_TIME,
+        sample_timestep=TIMESTEP,
+        inter_overlap=INTER_OVERLAP,
+        preictal_overlap=PREICTAL_OVERLAP,
+        ictal_overlap=ICTAL_OVERLAP,
+        downsample=DOWNSAMPLING_F,
+        sampling_f=SFREQ,
+        smote=SMOTE_FLAG,
+        connectivity_metric=CONNECTIVITY_METRIC,
+        npy_dataset_path=NPY_DATA_DIR,
+        event_tables_path=EVENT_TABLES_DIR,
+        cache_folder=CACHE_DIR,
     )
-    wandb.define_metric("patient")
-    for n, loso_patient in enumerate(os.listdir(NPY_DATA_DIR)):
-        writer = HDFDataset_Writer(
-            seizure_lookback=SEIZURE_LOOKBACK,
-            buffer_time=BUFFER_TIME,
-            sample_timestep=TIMESTEP,
-            inter_overlap=INTER_OVERLAP,
-            preictal_overlap=PREICTAL_OVERLAP,
-            ictal_overlap=ICTAL_OVERLAP,
-            downsample=DOWNSAMPLING_F,
+    master_hdf5_folder = writer.get_dataset()
+    master_hdf5_file = os.path.join(master_hdf5_folder, "dataset.hdf5")
+    print(f"Master HDF5 created at: {master_hdf5_file}")
+
+    # 2. Iterate through patients and create dedicated split folders
+    patient_list = [p for p in os.listdir(NPY_DATA_DIR) if os.path.isdir(os.path.join(NPY_DATA_DIR, p))]
+    
+    for n, loso_patient in enumerate(patient_list):
+        print(f"\n[{n+1}/{len(patient_list)}] Generating splits for {loso_patient}...")
+        
+        # Create a unique output directory for THIS patient's splits
+        patient_output_dir = os.path.join(CACHE_DIR, "loso_splits", loso_patient)
+        os.makedirs(patient_output_dir, exist_ok=True)
+
+        # 3. Process and save splits to the patient's folder
+        loader = HDFDatasetLoader(
+            root=patient_output_dir,     # Where to save the .pt files
+            hdf5_path=master_hdf5_file,  # Point to the master dataset
+            train_val_split_ratio=TRAIN_VAL_SPLIT,
+            loso_subject=loso_patient,
             sampling_f=SFREQ,
-            smote=SMOTE_FLAG,
-            connectivity_metric=CONNECTIVITY_METRIC,
-            npy_dataset_path=NPY_DATA_DIR,
-            event_tables_path=EVENT_TABLES_DIR,
-            cache_folder=CACHE_DIR,
+            extract_features=MNE_FEATURES,
+            fft=FFT,
+            seed=SEED,
+            used_classes_dict=USED_CLASSES_DICT,
+            normalize_with=NORMALIZING_PERIOD,
+            kfold_cval_mode=KFOLD_CVAL_MODE,
         )
-        cache_file_path = writer.get_dataset()
+
+        # This automatically processes and saves the .pt files via torch.save()
+        loader.get_datasets() 
+        print(f"Splits saved for {loso_patient} in {patient_output_dir}/processed/")
+
+    print("\nSUCCESS: All 140GB of data splits have been generated.")
+
+# def loso_training():
+#     """Leave one subject out training """
+#     """Initialize loso training."""
+#     wandb.init(
+#         config=INITIAL_CONFIG,
+#     )
+#     wandb.define_metric("patient")
+#     for n, loso_patient in enumerate(os.listdir(NPY_DATA_DIR)):
+#         writer = HDFDataset_Writer(
+#             seizure_lookback=SEIZURE_LOOKBACK,
+#             buffer_time=BUFFER_TIME,
+#             sample_timestep=TIMESTEP,
+#             inter_overlap=INTER_OVERLAP,
+#             preictal_overlap=PREICTAL_OVERLAP,
+#             ictal_overlap=ICTAL_OVERLAP,
+#             downsample=DOWNSAMPLING_F,
+#             sampling_f=SFREQ,
+#             smote=SMOTE_FLAG,
+#             connectivity_metric=CONNECTIVITY_METRIC,
+#             npy_dataset_path=NPY_DATA_DIR,
+#             event_tables_path=EVENT_TABLES_DIR,
+#             cache_folder=CACHE_DIR,
+#         )
+#         cache_file_path = writer.get_dataset()
 
 
-        print(f"Print the cache path {cache_file_path}")
+#         loader = HDFDatasetLoader(
+#             root=cache_file_path,
+#             train_val_split_ratio=TRAIN_VAL_SPLIT,
+#             loso_subject=loso_patient,
+#             sampling_f=SFREQ,
+#             extract_features=MNE_FEATURES,
+#             fft=FFT,
+#             seed=SEED,
+#             used_classes_dict=USED_CLASSES_DICT,
+#             normalize_with=NORMALIZING_PERIOD,
+#             kfold_cval_mode=KFOLD_CVAL_MODE,
+#         )
 
-    #     cache_file_path = CACHE_DIR
-
-    #     loader = HDFDatasetLoader(
-    #         root=cache_file_path,
-    #         train_val_split_ratio=TRAIN_VAL_SPLIT,
-    #         loso_subject=loso_patient,
-    #         sampling_f=SFREQ,
-    #         extract_features=MNE_FEATURES,
-    #         fft=FFT,
-    #         seed=SEED,
-    #         used_classes_dict=USED_CLASSES_DICT,
-    #         normalize_with=NORMALIZING_PERIOD,
-    #         kfold_cval_mode=KFOLD_CVAL_MODE,
-    #     )
-
-    #     train_ds_path, valid_ds_path, loso_ds_path = loader.get_datasets()
+#         train_ds_path, valid_ds_path, loso_ds_path = loader.get_datasets()
 
     #     train_dataset = GraphDataset(train_ds_path)
     #     valid_dataset = GraphDataset(valid_ds_path)
@@ -287,7 +338,7 @@ def loso_training():
     # wandb.log({"final_stdev_AUROC": stdev_auroc})
     # wandb.log({"final_measured_AUROC": measured_auroc})
     # wandb.finish()
-    return None
+    # return None
 
 
 def kfold_cval():
@@ -448,8 +499,9 @@ def kfold_cval():
 
 
 if __name__ == "__main__":
-    if KFOLD_CVAL_MODE:
-        kfold_cval()
-    else:
-        loso_training()
-        exit()
+    # if KFOLD_CVAL_MODE:
+    #     kfold_cval()
+    # else:
+    #     loso_training()
+    #     exit()
+    offline_dataset_generation()

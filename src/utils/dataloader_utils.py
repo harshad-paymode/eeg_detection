@@ -780,6 +780,7 @@ class HDFDatasetLoader:
     """
 
     root: str
+    hdf5_path: str = None  # <-- ADD THIS: explicitly point to the master file
     train_val_split_ratio: float = 0.0
     loso_subject: Union[str, None] = None
     sampling_f: int = 60
@@ -797,20 +798,25 @@ class HDFDatasetLoader:
     kfold_cval_mode: bool = False
 
     def _create_paths(self) -> List[str]:
-        date_now = datetime.now().strftime("%d.%m.%Y %H:%M:%S,%f")
-        timestep_ms = str(
-            (
-                datetime.strptime(date_now, "%d.%m.%Y %H:%M:%S,%f").timestamp()
-                * 1000
-            )
-        )
+        # date_now = datetime.now().strftime("%d.%m.%Y %H:%M:%S,%f")
+        # timestep_ms = str(
+        #     (
+        #         datetime.strptime(date_now, "%d.%m.%Y %H:%M:%S,%f").timestamp()
+        #         * 1000
+        #     )
+        # )
 
-        main_root_dir = os.path.join(self.root, timestep_ms)
-        try:
-            if not len(os.listdir(main_root_dir)) == 0:
-                shutil.rmtree(main_root_dir)
-        except FileNotFoundError:
-            self.logger.info("No processed cache found.")
+        # main_root_dir = os.path.join(self.root, timestep_ms)
+
+        # --- REMOVED TIMESTAMP AND SHUTIL.RMTREE ---
+        main_root_dir = os.path.join(self.root, "processed")
+
+        # try:
+        #     if not len(os.listdir(main_root_dir)) == 0:
+        #         shutil.rmtree(main_root_dir)
+        # except FileNotFoundError:
+        #     self.logger.info("No processed cache found.")
+        
         if not os.path.exists(main_root_dir):
             os.makedirs(main_root_dir)
             self.logger.info("Created processed cache folder.")
@@ -892,8 +898,12 @@ class HDFDatasetLoader:
 
     def _determine_dataset_characteristics(self) -> None:
         """Method to determine dataset characteristics."""
-        self.hdf_data_path = f"{self.root}/dataset.hdf5"
-        print(self.root)
+        # self.hdf_data_path = f"{self.root}/dataset.hdf5"
+        # print(self.root)
+        # --- CHANGED: Use explicit master path ---
+        self.hdf_data_path = self.hdf5_path if self.hdf5_path else f"{self.root}/dataset.hdf5"
+        
+        print(f"Loading master dataset from: {self.hdf_data_path}")
         with h5py.File(self.hdf_data_path, "r") as hdf5_file:
             self.patient_list = list(hdf5_file.keys())
             self.n_channels, self.n_features = hdf5_file[self.patient_list[0]][
