@@ -26,7 +26,7 @@ warnings.filterwarnings(
     "ignore", ".*does not have many workers.*"
 )  # DISABLED ON PURPOSE
 torch_geometric.seed_everything(42)
-api_key_file = open("/home/harshad03897/eeg_detection/src/wandb_api_key.txt", "r")
+api_key_file = open("/content/drive/MyDrive/eeg_detection/src/wandb_api_key.txt", "r")
 API_KEY = api_key_file.read()
 
 api_key_file.close()
@@ -56,6 +56,8 @@ parser.add_argument("--batch_size", type=int, default=256)
 parser.add_argument("--cache_dir", type=str, default="data/cache")
 parser.add_argument("--exp_name", type=str, default="eeg_exp")
 parser.add_argument("--npy_data_dir", type=str, default="data/npy_data")
+parser.add_argument("--prep_data_dir", type=str,defulat="data/prep")
+parser.add_argument("--saved_models_dir",type=str,default="data/models")
 parser.add_argument("--event_tables_dir", type=str, default="data/event_tables")
 parser.add_argument("--use_ictal_periods", action="store_true", default=False)
 parser.add_argument("--use_preictal_periods", action="store_true", default=False)
@@ -71,6 +73,8 @@ INTER_OVERLAP = args.inter_overlap
 ICTAL_OVERLAP = args.ictal_overlap
 SMOTE_FLAG = args.smote
 NPY_DATA_DIR = args.npy_data_dir
+PREPROCESSED_DATA_DIR = args.prep_data_dir
+SAVE_MODELS_PATH = args.saved_models_dir
 EVENT_TABLES_DIR = args.event_tables_dir
 WEIGHTS_FLAG = args.weights
 UNDERSAMPLE = args.undersample
@@ -185,160 +189,136 @@ def offline_dataset_generation():
 
     print("\nSUCCESS: All 140GB of data splits have been generated.")
 
-# def loso_training():
-#     """Leave one subject out training """
-#     """Initialize loso training."""
-#     wandb.init(
-#         config=INITIAL_CONFIG,
-#     )
-#     wandb.define_metric("patient")
-#     for n, loso_patient in enumerate(os.listdir(NPY_DATA_DIR)):
-#         writer = HDFDataset_Writer(
-#             seizure_lookback=SEIZURE_LOOKBACK,
-#             buffer_time=BUFFER_TIME,
-#             sample_timestep=TIMESTEP,
-#             inter_overlap=INTER_OVERLAP,
-#             preictal_overlap=PREICTAL_OVERLAP,
-#             ictal_overlap=ICTAL_OVERLAP,
-#             downsample=DOWNSAMPLING_F,
-#             sampling_f=SFREQ,
-#             smote=SMOTE_FLAG,
-#             connectivity_metric=CONNECTIVITY_METRIC,
-#             npy_dataset_path=NPY_DATA_DIR,
-#             event_tables_path=EVENT_TABLES_DIR,
-#             cache_folder=CACHE_DIR,
-#         )
-#         cache_file_path = writer.get_dataset()
+def loso_training():
+    """Leave one subject out training """
+    """Initialize loso training."""
+    wandb.init(
+        config=INITIAL_CONFIG,
+    )
+    wandb.define_metric("patient")
+    for n, loso_patient in enumerate(os.listdir(PREPROCESSED_DATA_DIR)):
+        
+        # --- NEW PATH LOGIC BASED ON YOUR FOLDER STRUCTURE ---
+        base_patient_path = os.path.join(PREPROCESSED_DATA_DIR, loso_patient, "processed")
+        train_ds_path = os.path.join(base_patient_path, "train")
+        valid_ds_path = os.path.join(base_patient_path, "val")
+        loso_ds_path = os.path.join(base_patient_path, "test")
 
+        train_dataset = GraphDataset(train_ds_path)
+        valid_dataset = GraphDataset(valid_ds_path)
+        loso_dataset = GraphDataset(loso_ds_path)
 
-#         loader = HDFDatasetLoader(
-#             root=cache_file_path,
-#             train_val_split_ratio=TRAIN_VAL_SPLIT,
-#             loso_subject=loso_patient,
-#             sampling_f=SFREQ,
-#             extract_features=MNE_FEATURES,
-#             fft=FFT,
-#             seed=SEED,
-#             used_classes_dict=USED_CLASSES_DICT,
-#             normalize_with=NORMALIZING_PERIOD,
-#             kfold_cval_mode=KFOLD_CVAL_MODE,
-#         )
+        # loso_dataset.clear_cache()
 
-#         train_ds_path, valid_ds_path, loso_ds_path = loader.get_datasets()
+        train_dataloader = DataLoader(
+            train_dataset,
+            batch_size=BATCH_SIZE,
+            shuffle=True,
+            num_workers=0,
+            drop_last=False,
+        )
+        valid_dataloader = DataLoader(
+            valid_dataset,
+            batch_size=BATCH_SIZE,
+            shuffle=False,
+            num_workers=0,
+            drop_last=False,
+        )
+        loso_dataloader = DataLoader(
+            loso_dataset,
+            batch_size=BATCH_SIZE,
+            shuffle=False,
+            num_workers=0,
+            drop_last=False,
+        )
 
-    #     train_dataset = GraphDataset(train_ds_path)
-    #     valid_dataset = GraphDataset(valid_ds_path)
-    #     loso_dataset = GraphDataset(loso_ds_path)
-    #     loso_dataset.clear_cache()
-    #     train_dataloader = DataLoader(
-    #         train_dataset,
-    #         batch_size=BATCH_SIZE,
-    #         shuffle=True,
-    #         num_workers=0,
-    #         drop_last=False,
-    #     )
-    #     valid_dataloader = DataLoader(
-    #         valid_dataset,
-    #         batch_size=BATCH_SIZE,
-    #         shuffle=False,
-    #         num_workers=0,
-    #         drop_last=False,
-    #     )
-    #     loso_dataloader = DataLoader(
-    #         loso_dataset,
-    #         batch_size=BATCH_SIZE,
-    #         shuffle=False,
-    #         num_workers=0,
-    #         drop_last=False,
-    #     )
+        device_name = "cuda:0" if torch.cuda.is_available() else "cpu"
+        precision = "bf16-mixed" if device_name == "cpu" else "16-mixed"
+        strategy = pl.strategies.SingleDeviceStrategy(device=device_name)
+        wandb_logger = pl.loggers.WandbLogger(log_model=False)
+        early_stopping = pl.callbacks.EarlyStopping(
+            monitor="val_loss", patience=10, verbose=False, mode="min"
+        )
+        best_checkpoint_callback = pl.callbacks.ModelCheckpoint(
+            monitor="val_loss",
+            save_top_k=1,
+            mode="min",
+            verbose=False,
+            dirpath = f"{SAVE_MODELS_PATH}/{loso_patient}",
+            filename = "best-checkpoint"
+        )
+        # Set refresh rate higher than your total batches (127)
+        progress_bar = TQDMProgressBar(refresh_rate=150) 
+        callbacks = [early_stopping, best_checkpoint_callback, progress_bar]
 
-    #     device_name = "cuda:0" if torch.cuda.is_available() else "cpu"
-    #     precision = "bf16-mixed" if device_name == "cpu" else "16-mixed"
-    #     strategy = pl.strategies.SingleDeviceStrategy(device=device_name)
-    #     wandb_logger = pl.loggers.WandbLogger(log_model=False)
-    #     early_stopping = pl.callbacks.EarlyStopping(
-    #         monitor="val_loss", patience=10, verbose=False, mode="min"
-    #     )
-    #     best_checkpoint_callback = pl.callbacks.ModelCheckpoint(
-    #         monitor="val_loss",
-    #         save_top_k=1,
-    #         mode="min",
-    #         verbose=False,
-    #         dirpath = f"saved_models_last/{loso_patient}",
-    #         filename = "best-checkpoint"
-    #     )
-    #     # Set refresh rate higher than your total batches (127)
-    #     progress_bar = TQDMProgressBar(refresh_rate=150) 
-    #     callbacks = [early_stopping, best_checkpoint_callback, progress_bar]
-
-    #     trainer = pl.Trainer(
-    #         accelerator="auto",
-    #         precision=precision,
-    #         devices=1,
-    #         strategy = "auto",
-    #         max_epochs=EPOCHS,
-    #         enable_progress_bar=True,
-    #         deterministic=False,
-    #         log_every_n_steps=50,
-    #         enable_model_summary=False,
-    #         logger=wandb_logger,
-    #         callbacks=callbacks,
-    #     )
-    #     CONFIG = wandb.config
-    #     train_labels = torch.cat([data.y for data in train_dataset])
-    #     label_properties = torch.unique(train_labels, return_counts=True)
-    #     if sum(CONFIG.used_classes_dict.values()) == 3:
-    #         """Multiclass weights"""
-    #         class_weight = torch.from_numpy(
-    #             compute_class_weight(
-    #                 "balanced",
-    #                 classes=label_properties[0].numpy(),
-    #                 y=train_labels.numpy(),
-    #             )
-    #         ).float()
-    #     else:
-    #         """Binary weights"""
-    #         class_weight = torch.tensor(
-    #             [label_properties[1][0] / label_properties[1][1]]
-    #         ).float() # Added .float() to ensure type consistency on TPU
-    #     n_classes = sum(USED_CLASSES_DICT.values())
-    #     features_shape = train_dataset[0].x.shape[-1]
-    #     model = GATv2Lightning(
-    #         features_shape,
-    #         n_classes=n_classes,
-    #         n_gat_layers=CONFIG.n_gat_layers,
-    #         hidden_dim=CONFIG.hidden_dim,
-    #         n_heads=CONFIG.n_heads,
-    #         slope=CONFIG.slope,
-    #         dropout=CONFIG.dropout,
-    #         pooling_method=CONFIG.pooling_method,
-    #         activation=CONFIG.activation,
-    #         norm_method=CONFIG.norm_method,
-    #         lr=CONFIG.lr,
-    #         weight_decay=CONFIG.weight_decay,
-    #         fft_mode=FFT,
-    #         class_weights=class_weight,
-    #     )
-    #     trainer.fit(model, train_dataloader, valid_dataloader)
-    #     eval_results = trainer.test(model, loso_dataloader, ckpt_path="best")[0]
-    #     wandb.log({"patient": int("".join([n for n in loso_patient if n.isdigit()]))})
-    #     wandb.define_metric("test_loss_epoch", step_metric="patient")
-    #     wandb.define_metric("loso_sensitivity", step_metric="patient")
-    #     wandb.define_metric("loso_specificity", step_metric="patient")
-    #     wandb.define_metric("loso_AUROC", step_metric="patient")
-    #     if n == 0:
-    #         result_list = [eval_results["test_AUROC"]]
-    #     else:
-    #         result_list.append(eval_results["test_AUROC"])
-    #     print(f"Training done for patient {loso_patient}")
-    # mean_auroc = mean(result_list)
-    # stdev_auroc = round(stdev(result_list), 4)
-    # measured_auroc = mean_auroc * (1 / stdev_auroc)
-    # wandb.log({"final_mean_AUROC": mean_auroc})
-    # wandb.log({"final_stdev_AUROC": stdev_auroc})
-    # wandb.log({"final_measured_AUROC": measured_auroc})
-    # wandb.finish()
-    # return None
+        trainer = pl.Trainer(
+            accelerator="auto",
+            precision=precision,
+            devices=1,
+            strategy = "auto",
+            max_epochs=EPOCHS,
+            enable_progress_bar=True,
+            deterministic=False,
+            log_every_n_steps=50,
+            enable_model_summary=False,
+            logger=wandb_logger,
+            callbacks=callbacks,
+        )
+        CONFIG = wandb.config
+        train_labels = torch.cat([data.y for data in train_dataset])
+        label_properties = torch.unique(train_labels, return_counts=True)
+        if sum(CONFIG.used_classes_dict.values()) == 3:
+            """Multiclass weights"""
+            class_weight = torch.from_numpy(
+                compute_class_weight(
+                    "balanced",
+                    classes=label_properties[0].numpy(),
+                    y=train_labels.numpy(),
+                )
+            ).float()
+        else:
+            """Binary weights"""
+            class_weight = torch.tensor(
+                [label_properties[1][0] / label_properties[1][1]]
+            ).float() # Added .float() to ensure type consistency on TPU
+        n_classes = sum(USED_CLASSES_DICT.values())
+        features_shape = train_dataset[0].x.shape[-1]
+        model = GATv2Lightning(
+            features_shape,
+            n_classes=n_classes,
+            n_gat_layers=CONFIG.n_gat_layers,
+            hidden_dim=CONFIG.hidden_dim,
+            n_heads=CONFIG.n_heads,
+            slope=CONFIG.slope,
+            dropout=CONFIG.dropout,
+            pooling_method=CONFIG.pooling_method,
+            activation=CONFIG.activation,
+            norm_method=CONFIG.norm_method,
+            lr=CONFIG.lr,
+            weight_decay=CONFIG.weight_decay,
+            fft_mode=FFT,
+            class_weights=class_weight,
+        )
+        trainer.fit(model, train_dataloader, valid_dataloader)
+        eval_results = trainer.test(model, loso_dataloader, ckpt_path="best")[0]
+        wandb.log({"patient": int("".join([n for n in loso_patient if n.isdigit()]))})
+        wandb.define_metric("test_loss_epoch", step_metric="patient")
+        wandb.define_metric("loso_sensitivity", step_metric="patient")
+        wandb.define_metric("loso_specificity", step_metric="patient")
+        wandb.define_metric("loso_AUROC", step_metric="patient")
+        if n == 0:
+            result_list = [eval_results["test_AUROC"]]
+        else:
+            result_list.append(eval_results["test_AUROC"])
+        print(f"Training done for patient {loso_patient}")
+    mean_auroc = mean(result_list)
+    stdev_auroc = round(stdev(result_list), 4)
+    measured_auroc = mean_auroc * (1 / stdev_auroc)
+    wandb.log({"final_mean_AUROC": mean_auroc})
+    wandb.log({"final_stdev_AUROC": stdev_auroc})
+    wandb.log({"final_measured_AUROC": measured_auroc})
+    wandb.finish()
+    return None
 
 
 def kfold_cval():
@@ -499,9 +479,9 @@ def kfold_cval():
 
 
 if __name__ == "__main__":
-    # if KFOLD_CVAL_MODE:
-    #     kfold_cval()
-    # else:
-    #     loso_training()
-    #     exit()
-    offline_dataset_generation()
+    if KFOLD_CVAL_MODE:
+        kfold_cval()
+    else:
+        loso_training()
+        exit()
+    # offline_dataset_generation()
