@@ -122,8 +122,8 @@ INITIAL_CONFIG = dict(
     connectivity_metric=CONNECTIVITY_METRIC,
     seed=SEED,
     n_gat_layers=1,
-    hidden_dim=32,
-    dropout=0.0,
+    hidden_dim=64,
+    dropout=0.2,
     slope=0.0025,
     pooling_method="mean",
     norm_method="batch",
@@ -214,21 +214,21 @@ def loso_training():
             train_dataset,
             batch_size=BATCH_SIZE,
             shuffle=True,
-            num_workers=0,
+            num_workers=4,
             drop_last=False,
         )
         valid_dataloader = DataLoader(
             valid_dataset,
             batch_size=BATCH_SIZE,
             shuffle=False,
-            num_workers=0,
+            num_workers=4,
             drop_last=False,
         )
         loso_dataloader = DataLoader(
             loso_dataset,
             batch_size=BATCH_SIZE,
             shuffle=False,
-            num_workers=0,
+            num_workers=4,
             drop_last=False,
         )
 
