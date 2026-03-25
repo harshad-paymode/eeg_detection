@@ -26,7 +26,7 @@ warnings.filterwarnings(
     "ignore", ".*does not have many workers.*"
 )  # DISABLED ON PURPOSE
 torch_geometric.seed_everything(42)
-api_key_file = open("/content/drive/MyDrive/eeg_detection/src/wandb_api_key.txt", "r")
+api_key_file = open("/home/harshad03897/eeg_detection/src/wandb_api_key.txt", "r")
 API_KEY = api_key_file.read()
 
 api_key_file.close()
