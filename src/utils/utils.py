@@ -618,7 +618,7 @@ def save_timeseries_array(ds_path, target_path):
             file_target = file.split(".edf")[0] + ".npy"
             dst_folder = os.path.join(dst_folder, file_target)
             np.save(dst_folder, array_data)
-
+        print(f"Numpy files saved for patient {folder}")
 
 def plv_connectivity_old(sensors, data):
     """
