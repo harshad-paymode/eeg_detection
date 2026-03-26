@@ -187,7 +187,7 @@ def offline_dataset_generation():
         loader.get_datasets() 
         print(f"Splits saved for {loso_patient} in {patient_output_dir}/processed/")
 
-    print("\nSUCCESS: All 140GB of data splits have been generated.")
+    print("\nSUCCESS: All train, val and test splits have been generated.")
 
 def loso_training():
     """Leave one subject out training """
