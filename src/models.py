@@ -187,9 +187,7 @@ class GATv2Lightning(pl.LightningModule):
         classifier_out_neurons = n_classes if n_classes > 2 else 1
         feature_extractor_list: List[
             Union[Tuple[Callable, str], Callable]
-        ] = [
-            (BatchNorm(in_features), "x -> x") 
-        ]
+        ] = []
         for i in range(n_gat_layers):
             feature_extractor_list.append(
                 (
@@ -200,6 +198,7 @@ class GATv2Lightning(pl.LightningModule):
                         negative_slope=slope,
                         dropout=dropout,
                         add_self_loops=True,
+                        improved=True,
                         edge_dim=1,
                     ),
                     "x, edge_index, edge_attr -> x",
@@ -213,18 +212,15 @@ class GATv2Lightning(pl.LightningModule):
 
         self.classifier = nn.Sequential(
             Linear(
-                hidden_dim * n_heads, 256, weight_initializer="kaiming_uniform"
+                hidden_dim * n_heads, 512, weight_initializer="kaiming_uniform"
             ),
-            dropout_layer,  # Acts as identity since you pass dropout=0.0
-            act_fn,
-            Linear(256, 128, weight_initializer="kaiming_uniform"),
             dropout_layer,
             act_fn,
-            Linear(128, 64, weight_initializer="kaiming_uniform"),
+            Linear(512, 128, weight_initializer="kaiming_uniform"),
             dropout_layer,
             act_fn,
             Linear(
-                64,
+                128,
                 classifier_out_neurons,
                 weight_initializer="kaiming_uniform",
             ),
@@ -243,10 +239,9 @@ class GATv2Lightning(pl.LightningModule):
         if class_weights is None:
             class_weights = torch.ones(n_classes)
         self.class_weights = class_weights
-
         if self.classification_mode == "multiclass":
             self.f1_score = F1Score(task="multiclass", num_classes=n_classes)
-            self.loss = nn.CrossEntropyLoss(weight=self.class_weights)
+            self.loss = nn.CrossEntropyLoss(weight=class_weights)
             self.recall = Recall(
                 task="multiclass", num_classes=n_classes, threshold=0.5
             )
@@ -256,7 +251,7 @@ class GATv2Lightning(pl.LightningModule):
             self.auroc = AUROC(task="multiclass", num_classes=n_classes)
         elif self.classification_mode == "binary":
             self.f1_score = F1Score(task="binary", threshold=0.5)
-            self.loss = nn.BCEWithLogitsLoss(pos_weight=self.class_weights)
+            self.loss = nn.BCEWithLogitsLoss(pos_weight=class_weights)
             self.recall = Recall(task="binary", threshold=0.5)
             self.specificity = Specificity(task="binary", threshold=0.5)
             self.auroc = AUROC(task="binary")
@@ -300,9 +295,9 @@ class GATv2Lightning(pl.LightningModule):
         self.log(
             "train_loss",
             loss,
-            on_step=False,
+            on_step=True,
             on_epoch=True,
-            prog_bar=False,
+            prog_bar=True,
             logger=True,
             batch_size=batch_size,
         )
@@ -343,7 +338,7 @@ class GATv2Lightning(pl.LightningModule):
             on_step=False,
             on_epoch=True,
             logger=True,
-            prog_bar=False,
+            prog_bar=True,
             batch_size=batch_size,
         )
         return loss
@@ -383,7 +378,7 @@ class GATv2Lightning(pl.LightningModule):
             on_step=False,
             on_epoch=True,
             logger=True,
-            prog_bar=False,
+            prog_bar=True,
             batch_size=batch_size,
         )
         return loss
