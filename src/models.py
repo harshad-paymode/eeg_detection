@@ -187,7 +187,9 @@ class GATv2Lightning(pl.LightningModule):
         classifier_out_neurons = n_classes if n_classes > 2 else 1
         feature_extractor_list: List[
             Union[Tuple[Callable, str], Callable]
-        ] = []
+        ] = [
+            BatchNorm(in_features)
+        ]
         for i in range(n_gat_layers):
             feature_extractor_list.append(
                 (
