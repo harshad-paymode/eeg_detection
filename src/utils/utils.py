@@ -612,8 +612,9 @@ def save_timeseries_array(ds_path, target_path):
             )
             array_data = data_raw.get_data()
             dst_folder = os.path.join(target_path, folder)
-            if not os.path.exists(dst_folder):
-                os.mkdir(dst_folder)
+            os.makedirs(dst_folder, exist_ok=True)
+            # if not os.path.exists(dst_folder):
+            #     os.mkdir(dst_folder)
             file_target = file.split(".edf")[0] + ".npy"
             dst_folder = os.path.join(dst_folder, file_target)
             np.save(dst_folder, array_data)
