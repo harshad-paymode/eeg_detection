@@ -86,7 +86,7 @@ standard_channel_order = [
 
 
 def remove_channels_dummy(ch_name):
-    if re.findall("--", ch_name) or re.findall(r"\.", ch_name):
+    if re.findall("--", ch_name) or re.findall("\.", ch_name):
         print(f"Removing channel {ch_name}")
         return True
     return False
@@ -120,7 +120,7 @@ def reorder_channels_chbmit(raw):
     raw.rename_channels(ch_map)
     raw.reorder_channels(ch_demanded_order)
     montage = mne.channels.read_custom_montage(
-        Path("/home/harshad03897/eeg_detection/data/chb_mit_ch_locs.loc")
+        Path("data/chb_mit_ch_locs.loc")
     )
     raw.set_montage(montage)
     return None
@@ -273,9 +273,11 @@ def preprocess_dataset_all(
         dataset_path: path to a folder containing all patient folders.
         preprocessed_dirpath: path to folder in which preprocessed files will be saved.
     """
-    subjects_with_seizures = []
-    with open(subjects_with_seizures_path, "r") as f:
-        subjects_with_seizures = [line.strip() for line in f]
+    subjects_with_seizures = [
+        subject[:-1]
+        for subject in open(subjects_with_seizures_path, "r").readlines()
+    ]
+
     for folder in os.listdir(dataset_path):
         for file in os.listdir(os.path.join(dataset_path, folder)):
             if file.endswith(".edf"):
@@ -284,7 +286,6 @@ def preprocess_dataset_all(
                         os.path.join(dataset_path, folder, file)
                     )
                     if raw_file is None:
-                        print(f"!!! SKIPPING {file}: load_and_dump_channels returned None (check channel names)")
                         continue
                 except Exception:
                     print(f"Subject {folder}/{file} not found.")
@@ -298,19 +299,17 @@ def preprocess_dataset_all(
                     freq_l=0.5,
                     freq_h=30.0,
                 )
-                os.makedirs(os.path.join(preprocessed_dirpath, folder), exist_ok = True)
-
                 if os.path.join(folder, file) in subjects_with_seizures:
                     save_path = os.path.join(
-                        preprocessed_dirpath, folder, "seizures_" + file.replace(".edf",".npy")
+                        preprocessed_dirpath, folder, "seizures_" + file
                     )
                 else:
                     save_path = os.path.join(
-                        preprocessed_dirpath, folder, file.replace(".edf",".npy")
+                        preprocessed_dirpath, folder, file
                     )
-                
-                eeg_data = raw_instance.get_data()
-                np.save(save_path, eeg_data)
+                if not os.path.exists(os.path.split(save_path)[0]):
+                    os.mkdir(os.path.split(save_path)[0])
+                mne.export.export_raw(save_path, raw_instance, fmt="edf")
                 print(f"Finished preprocessing subject {folder}/{file}.")
     return None
 
@@ -532,7 +531,7 @@ def get_patient_annotations(path_to_file: Path, savedir: Path):
     raw_txt_lines = raw_txt.readlines()
     event_dict_start = dict()
     event_dict_stop = dict()
-    p = r"[\d]+"
+    p = "[\d]+"
     for n, line in enumerate(raw_txt_lines):
         if "File Name" in line:
             current_file_name = line.split(": ")[1][:-1]
@@ -588,8 +587,6 @@ def get_patient_annotations(path_to_file: Path, savedir: Path):
 def get_annotation_files(dataset_path, dst_path):
     patient_folders = os.listdir(dataset_path)
     for folder in patient_folders:
-        if folder.startswith('.') or folder == 'virtual_documents':
-            continue
         patient_folder_path = os.path.join(dataset_path, folder)
         if os.path.isdir(patient_folder_path):
             patient_files = os.listdir(patient_folder_path)

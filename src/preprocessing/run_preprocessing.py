@@ -23,4 +23,4 @@ if __name__ == "__main__":
     preprocess_dataset_all(
         annotation_files_path, data_path, preprocessed_edf_path
     )
-    # save_timeseries_array(preprocessed_edf_path, final_npy_path)
+    save_timeseries_array(preprocessed_edf_path, final_npy_path)
