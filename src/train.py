@@ -122,8 +122,8 @@ INITIAL_CONFIG = dict(
     connectivity_metric=CONNECTIVITY_METRIC,
     seed=SEED,
     n_gat_layers=1,
-    hidden_dim=128,
-    dropout=0.4,
+    hidden_dim=32,
+    dropout=0.0,
     slope=0.0025,
     pooling_method="mean",
     norm_method="batch",
@@ -479,9 +479,9 @@ def kfold_cval():
 
 
 if __name__ == "__main__":
-    if KFOLD_CVAL_MODE:
-        kfold_cval()
-    else:
-        loso_training()
-        exit()
-    # offline_dataset_generation()
+    # if KFOLD_CVAL_MODE:
+    #     kfold_cval()
+    # else:
+    #     loso_training()
+    #     exit()
+    offline_dataset_generation()
