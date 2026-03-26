@@ -19,8 +19,8 @@ if __name__ == "__main__":
     preprocessed_edf_path = Path(args.preprocessed_edf_path)
     final_npy_path = Path(args.final_npy_path)
     annotation_files_path = Path(args.annotation_files_path)
-    # get_annotation_files(data_path, event_tables_path)
-    # preprocess_dataset_all(
-    #     annotation_files_path, data_path, preprocessed_edf_path
-    # )
+    get_annotation_files(data_path, event_tables_path)
+    preprocess_dataset_all(
+        annotation_files_path, data_path, preprocessed_edf_path
+    )
     save_timeseries_array(preprocessed_edf_path, final_npy_path)

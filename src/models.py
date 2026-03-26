@@ -211,15 +211,18 @@ class GATv2Lightning(pl.LightningModule):
 
         self.classifier = nn.Sequential(
             Linear(
-                hidden_dim * n_heads, 512, weight_initializer="kaiming_uniform"
+                hidden_dim * n_heads, 256, weight_initializer="kaiming_uniform"
             ),
+            dropout_layer,  # Acts as identity since you pass dropout=0.0
+            act_fn,
+            Linear(256, 128, weight_initializer="kaiming_uniform"),
             dropout_layer,
             act_fn,
-            Linear(512, 128, weight_initializer="kaiming_uniform"),
+            Linear(128, 64, weight_initializer="kaiming_uniform"),
             dropout_layer,
             act_fn,
             Linear(
-                128,
+                64,
                 classifier_out_neurons,
                 weight_initializer="kaiming_uniform",
             ),
