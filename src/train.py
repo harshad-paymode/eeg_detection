@@ -479,9 +479,9 @@ def kfold_cval():
 
 
 if __name__ == "__main__":
-    # if KFOLD_CVAL_MODE:
-    #     kfold_cval()
-    # else:
-    #     loso_training()
-    #     exit()
-    offline_dataset_generation()
+    if KFOLD_CVAL_MODE:
+        kfold_cval()
+    else:
+        loso_training()
+        exit()
+    # offline_dataset_generation()
