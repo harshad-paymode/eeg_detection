@@ -188,7 +188,7 @@ class GATv2Lightning(pl.LightningModule):
         feature_extractor_list: List[
             Union[Tuple[Callable, str], Callable]
         ] = [
-            BatchNorm(in_features)
+            (BatchNorm(in_features), "x -> x") 
         ]
         for i in range(n_gat_layers):
             feature_extractor_list.append(
