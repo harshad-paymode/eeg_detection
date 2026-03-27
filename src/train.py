@@ -354,9 +354,7 @@ def kfold_cval():
     # )
 
     full_data_path = PREPROCESSED_DATA_DIR
-
     
-
     full_dataset = GraphDataset(full_data_path)
     features_shape = full_dataset[0].x.shape[-1]
     label_array = np.array([data.y.item() for data in full_dataset]).reshape(-1, 1)
@@ -375,12 +373,13 @@ def kfold_cval():
     strategy = pl.strategies.SingleDeviceStrategy(device=torch_device)
     kfold = MultilabelStratifiedKFold(n_splits=N_SPLITS, random_state=42, shuffle=True)
 
+    result_list = []
     for fold, (train_idx, test_idx) in enumerate(
         kfold.split(np.zeros(len(full_dataset)), class_labels_patient_labels)
     ):
         print(f"Fold {fold}")
         wandb.init(
-            project="sano_eeg_final_runs",
+            project="harshad_eeg_final_run",
             group=EXP_NAME,
             name=f"fold_{fold}",
             config=INITIAL_CONFIG,
@@ -475,7 +474,23 @@ def kfold_cval():
             class_weights=class_weight,
         )
         trainer.fit(model, train_dataloader, valid_dataloader)
-        trainer.test(model, test_dataloader, ckpt_path="best")
+        eval_results =trainer.test(model, test_dataloader, ckpt_path="best")[0]
+
+        fold_auroc = eval_results.get("test_auroc", 0)
+        result_list.append(fold_auroc)
+
+        if fold == N_SPLITS - 1:
+            mean_auroc = mean(result_list)
+            stdev_auroc = round(stdev(result_list), 4)
+            measured_auroc = mean_auroc * (1 / stdev_auroc)
+            sem_auroc = round(stdev_auroc / (len(result_list) ** 0.5), 4)
+            wandb.log({
+                "final_mean_AUROC": mean_auroc,
+                "final_stdev_AUROC": stdev_auroc,
+                "final_sem_AUROC": sem_auroc,
+                "final_measured_AUROC": measured_auroc
+            })        
+
         wandb.finish()
 
     return None
