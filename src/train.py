@@ -354,7 +354,7 @@ def kfold_cval():
     # )
 
     full_data_path = PREPROCESSED_DATA_DIR
-    
+
     full_dataset = GraphDataset(full_data_path)
     features_shape = full_dataset[0].x.shape[-1]
     label_array = np.array([data.y.item() for data in full_dataset]).reshape(-1, 1)
@@ -476,7 +476,7 @@ def kfold_cval():
         trainer.fit(model, train_dataloader, valid_dataloader)
         eval_results =trainer.test(model, test_dataloader, ckpt_path="best")[0]
 
-        fold_auroc = eval_results.get("test_auroc", 0)
+        fold_auroc = eval_results.get("test_AUROC", 0)
         result_list.append(fold_auroc)
 
         if fold == N_SPLITS - 1:

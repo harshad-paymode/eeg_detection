@@ -297,7 +297,7 @@ class GATv2Lightning(pl.LightningModule):
             loss,
             on_step=False,
             on_epoch=True,
-            prog_bar=True,
+            prog_bar=False,
             logger=True,
             batch_size=batch_size,
         )
@@ -318,7 +318,7 @@ class GATv2Lightning(pl.LightningModule):
                 "train_f1_score": f1_score,
             },
             logger=True,
-            prog_bar=True,
+            prog_bar=False,
             on_step=False,
             on_epoch=True,
         )
@@ -338,7 +338,7 @@ class GATv2Lightning(pl.LightningModule):
             on_step=False,
             on_epoch=True,
             logger=True,
-            prog_bar=True,
+            prog_bar=False,
             batch_size=batch_size,
         )
         return loss
@@ -358,7 +358,7 @@ class GATv2Lightning(pl.LightningModule):
                 "val_f1_score": f1_score,
             },
             logger=True,
-            prog_bar=True,
+            prog_bar=False,
             on_step=False,
             on_epoch=True,
         )
