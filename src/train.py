@@ -393,7 +393,7 @@ def kfold_cval():
         valid_dataset = [full_dataset[idx] for idx in val_idx]
         test_data = [full_dataset[idx] for idx in test_idx]
         test_save_data = os.path.join(
-            "saved_folds_trial", EXP_NAME, f"fold_{fold}/ data.pt"
+            "saved_folds_trial", EXP_NAME, f"fold_{fold}/data.pt"
         )
         save_data_list(test_data, test_save_data)
         train_dataloader = DataLoader(
