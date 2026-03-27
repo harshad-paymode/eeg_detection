@@ -35,6 +35,7 @@ def compute_uncertainty_metrics(args):
     save_dir_metrics = args.save_dir_metrics
     mc_passes = args.mc_passes
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dropout_on = args.dropout_on
     
     if os.path.exists(save_dir_metrics):
         print("Save directory already exists")
@@ -55,15 +56,17 @@ def compute_uncertainty_metrics(args):
     summary_ece = []
     summary_brier = []
     summary_aurc = []
-
+    dropout = 0.0
     for n, fold in enumerate(fold_list):
         checkpoint_path = os.path.join(
             checkpoint_fold_list[n], os.listdir(checkpoint_fold_list[n])[0]
         )
 
+        if dropout_on:
+            dropout = 0.4
         n_gat_layers = 1
         hidden_dim = 32
-        dropout = 0.4  # Important: Must be > 0 for MC Dropout to work
+        dropout = dropout   # Important: Must be > 0 for MC Dropout to work
         slope = 0.0025
         pooling_method = "mean"
         norm_method = "batch"
@@ -172,6 +175,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_dir", type=str, required=True)
     parser.add_argument("--data_dir", type=str, required=True)
     parser.add_argument("--save_dir_metrics", type=str, required=True)
+    parser.add_argument("--dropout_on",action="store_true", default=False)
     parser.add_argument("--mc_passes", type=int, default=30)
     args = parser.parse_args()
     compute_uncertainty_metrics(args)
