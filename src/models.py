@@ -198,6 +198,7 @@ class GATv2Lightning(pl.LightningModule):
                         negative_slope=slope,
                         dropout=dropout,
                         add_self_loops=True,
+                        improved = True,
                         edge_dim=1,
                     ),
                     "x, edge_index, edge_attr -> x",
