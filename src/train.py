@@ -354,6 +354,8 @@ def kfold_cval():
     )
 
     full_data_path = loader.get_datasets()[0]
+
+    print(f"this is the full dataset path {full_data_path}")
     full_dataset = GraphDataset(full_data_path)
     features_shape = full_dataset[0].x.shape[-1]
     label_array = np.array([data.y.item() for data in full_dataset]).reshape(-1, 1)
