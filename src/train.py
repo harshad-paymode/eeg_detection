@@ -380,7 +380,7 @@ def kfold_cval():
     ):
         print(f"Fold {fold}")
         wandb.init(
-            project="harshad_eeg_corrected_model",
+            project="eeg_final_launch",
             group=EXP_NAME,
             name=f"fold_{fold}",
             config=INITIAL_CONFIG,
