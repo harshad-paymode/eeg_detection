@@ -373,7 +373,8 @@ def kfold_cval():
     strategy = pl.strategies.SingleDeviceStrategy(device=torch_device)
     kfold = MultilabelStratifiedKFold(n_splits=N_SPLITS, random_state=42, shuffle=True)
 
-    result_list = []
+    result_list_auroc = []
+    result_list_f1 = []
     for fold, (train_idx, test_idx) in enumerate(
         kfold.split(np.zeros(len(full_dataset)), class_labels_patient_labels)
     ):
@@ -477,19 +478,35 @@ def kfold_cval():
         eval_results =trainer.test(model, test_dataloader, ckpt_path="best")[0]
 
         fold_auroc = eval_results.get("test_AUROC", 0)
-        result_list.append(fold_auroc)
+        result_list_auroc.append(fold_auroc)
 
+        fold_f1 = eval_results.get("test_f1_score",0)
+        result_list_f1.append(fold_f1)
         if fold == N_SPLITS - 1:
-            mean_auroc = mean(result_list)
-            stdev_auroc = round(stdev(result_list), 4)
+            #logging final auroc
+            mean_auroc = mean(result_list_auroc)
+            stdev_auroc = round(stdev(result_list_auroc), 4)
             measured_auroc = mean_auroc * (1 / stdev_auroc)
-            sem_auroc = round(stdev_auroc / (len(result_list) ** 0.5), 4)
+            sem_auroc = round(stdev_auroc / (len(result_list_auroc) ** 0.5), 4)
             wandb.log({
                 "final_mean_AUROC": mean_auroc,
                 "final_stdev_AUROC": stdev_auroc,
                 "final_sem_AUROC": sem_auroc,
                 "final_measured_AUROC": measured_auroc
+            }) 
+
+            #logging final f1 score
+            mean_f1 = mean(result_list_f1)
+            stdev_f1 = round(stdev(result_list_f1), 4)
+            measured_f1 = mean_f1 * (1 / stdev_f1)
+            sem_f1 = round(stdev_f1 / (len(result_list_f1) ** 0.5), 4)
+            wandb.log({
+                "final_mean_f1": mean_f1,
+                "final_stdev_f1": stdev_f1,
+                "final_sem_f1": sem_f1,
+                "final_measured_f1": measured_f1
             })        
+
 
         wandb.finish()
 
