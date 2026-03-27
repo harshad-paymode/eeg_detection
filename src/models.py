@@ -216,7 +216,7 @@ class GATv2Lightning(pl.LightningModule):
             ),
             nn.Dropout(0.2),  
             act_fn,
-            Linear(512, 256, weight_initializer="kaiming_uniform"),
+            Linear(512, 128, weight_initializer="kaiming_uniform"),
             nn.Dropout(0.1),
             act_fn,
             Linear(
