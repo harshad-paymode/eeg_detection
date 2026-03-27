@@ -452,7 +452,7 @@ def kfold_cval():
             enable_progress_bar=True,
             strategy=strategy,
             deterministic=False,
-            log_every_n_steps=1,
+            log_every_n_steps=50,
             enable_model_summary=False,
             logger=wandb_logger,
             callbacks=callbacks,
