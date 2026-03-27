@@ -431,19 +431,52 @@ class HDFDataset_Writer:
                 time_labels_patient = time_labels
                 # edge_weights_patient = edge_weights
 
-        # --- REPLACED SECTION STARTS HERE ---
-        if 'features_patient' not in locals():
-            return patient, None, None, None, None, 0, 0
-            
         try:
             sample_count = features_patient.shape[0]
-            preictal_samples = np.unique(labels_patient, return_counts=True)[1][0]
-        except Exception as e:
-            self.logger.error(f"Cannot calculate metrics for patient {patient}: {e}")
-            return patient, None, None, None, None, 0, 0
+            n_channels = features_patient.shape[1]
+            n_features = features_patient.shape[2]
 
-        # Return arrays directly to the main thread
-        return patient, features_patient, labels_patient, edge_idx_patient, time_labels_patient, preictal_samples, sample_count
+            while True:
+                try:
+                    with h5py.File(self.dataset_path, "a") as hdf5_file:
+                        hdf5_file[patient].create_dataset(
+                            "features",
+                            data=features_patient,
+                            maxshape=(None, n_channels, n_features),
+                        )
+                        hdf5_file[patient].create_dataset(
+                            "labels", data=labels_patient, maxshape=(None, 1)
+                        )
+                        hdf5_file[patient].create_dataset(
+                            "edge_idx",
+                            data=edge_idx_patient,
+                            maxshape=(None, n_channels, n_channels),
+                        )
+                        hdf5_file[patient].create_dataset(
+                            "time_labels",
+                            data=time_labels_patient,
+                            maxshape=(None, 1),
+                        )
+                        self.logger.info(
+                            f"Dataset for patient {patient} created successfully!."
+                        )
+                    break
+                except BlockingIOError:
+                    self.logger.warning(
+                        f"Waiting for dataset {patient} to be created."
+                    )
+                    continue
+
+        except Exception as e:
+            self.logger.error(e)
+            traceback_str = traceback.format_exc()
+            self.logger.error(traceback_str)
+            self.logger.error("##############################################")
+            self.logger.error(f"Cannot create dataset for patient {patient}!")
+            self.logger.error("##############################################")
+
+        preictal_samples = np.unique(labels_patient, return_counts=True)[1][0]
+        return (patient, preictal_samples, sample_count)
 
     def _get_labels_features_edge_weights_interictal(
         self, patient, samples_patient: Union[int, None] = None
@@ -575,134 +608,104 @@ class HDFDataset_Writer:
                 edge_idx_patient = edge_idx
                 time_labels_patient = time_labels
                 # edge_weights_patient = edge_weights
-        
-        # --- REPLACED SECTION STARTS HERE ---
-        # If no features were extracted, return None to prevent crash
-        if 'features_patient' not in locals():
-            return patient, None, None, None, None
-            
-        # Simply return the arrays to the main thread instead of fighting over the file lock
-        return patient, features_patient, labels_patient, edge_idx_patient, time_labels_patient
+
+        while True:
+            try:
+                with h5py.File(self.dataset_path, "a") as hdf5_file:
+                    current_patient_features = hdf5_file[patient][
+                        "features"
+                    ].shape[0]
+                    current_patient_labels = hdf5_file[patient][
+                        "labels"
+                    ].shape[0]
+                    current_patient_edge_idx = hdf5_file[patient][
+                        "edge_idx"
+                    ].shape[0]
+                    current_patient_time_labels = hdf5_file[patient][
+                        "time_labels"
+                    ].shape[0]
+                    hdf5_file[patient]["features"].resize(
+                        (current_patient_features + features_patient.shape[0]),
+                        axis=0,
+                    )
+                    hdf5_file[patient]["features"][
+                        -features_patient.shape[0] :
+                    ] = features_patient
+                    hdf5_file[patient]["labels"].resize(
+                        (current_patient_labels + labels_patient.shape[0]),
+                        axis=0,
+                    )
+                    hdf5_file[patient]["labels"][
+                        -labels_patient.shape[0] :
+                    ] = labels_patient
+
+                    hdf5_file[patient]["time_labels"].resize(
+                        (
+                            current_patient_time_labels
+                            + time_labels_patient.shape[0]
+                        ),
+                        axis=0,
+                    )
+                    hdf5_file[patient]["time_labels"][
+                        -time_labels_patient.shape[0] :
+                    ] = time_labels_patient
+
+                    hdf5_file[patient]["edge_idx"].resize(
+                        (current_patient_edge_idx + edge_idx_patient.shape[0]),
+                        axis=0,
+                    )
+                    hdf5_file[patient]["edge_idx"][
+                        -edge_idx_patient.shape[0] :
+                    ] = edge_idx_patient
+                    self.logger.info(
+                        f"Dataset for patient {patient} appended successfully!."
+                    )
+                break
+            except BlockingIOError:
+                self.logger.warning(f"Waiting for appending of {patient}.")
+                continue
+            except UnboundLocalError:
+                self.logger.warning(
+                    f"Cannot append {patient}, record {record}."
+                )
+                return 0
+
+        return features_patient.shape[0]
 
     def _multiprocess_seizure_period_data_loading(self):
         num_processes = CPUS_PER_TASK  # mp.cpu_count()
         pool = mp.Pool(processes=num_processes)
         self.logger.info(num_processes)
 
-        # Use imap_unordered to process as soon as ready
-        results = pool.imap_unordered(
+        result = pool.map(
             self._get_labels_features_edge_weights_seizure, self.patient_list
         )
-
-        self.sample_count = 0
-        
-        # Open HDF5 file ONCE and write sequentially
-        with h5py.File(self.dataset_path, "a") as hdf5_file:
-            for patient, features_patient, labels_patient, edge_idx_patient, time_labels_patient, preictal_samples, sample_count in results:
-                if features_patient is None:
-                    continue
-                
-                try:
-                    n_channels = features_patient.shape[1]
-                    n_features = features_patient.shape[2]
-
-                    hdf5_file[patient].create_dataset(
-                        "features",
-                        data=features_patient,
-                        maxshape=(None, n_channels, n_features),
-                    )
-                    hdf5_file[patient].create_dataset(
-                        "labels", data=labels_patient, maxshape=(None, 1)
-                    )
-                    hdf5_file[patient].create_dataset(
-                        "edge_idx",
-                        data=edge_idx_patient,
-                        maxshape=(None, n_channels, n_channels),
-                    )
-                    hdf5_file[patient].create_dataset(
-                        "time_labels",
-                        data=time_labels_patient,
-                        maxshape=(None, 1),
-                    )
-                    self.logger.info(
-                        f"Dataset for patient {patient} created successfully!."
-                    )
-                    
-                    # Update dictionary and counters
-                    self.preictal_samples_dict[patient] = preictal_samples
-                    self.sample_count += sample_count
-                    
-                except Exception as e:
-                    self.logger.error(f"Cannot create dataset for patient {patient}: {e}")
-
-                # FIX 2: Force RAM to clear immediately after writing to the file
-                del features_patient, labels_patient, edge_idx_patient, time_labels_patient
-                import gc
-                gc.collect()
-
         pool.close()
         pool.join()
         if pool:
             pool.terminate()
             pool = None  # workaround for mp bug
+        self.sample_count = 0
+        for patient, preictal_samples, sample_count in result:
+            self.preictal_samples_dict[patient] = preictal_samples
+            self.sample_count += sample_count
 
     def _multiprocess_interictal_data_loading(self):
         num_processes = CPUS_PER_TASK  # mp.cpu_count()
         self.logger.info(num_processes)
         pool = mp.Pool(processes=num_processes)
 
-        results = pool.imap_unordered(
+        result = pool.map(
             self._get_labels_features_edge_weights_interictal,
             self.patient_list,
         )
-        # Open the file ONCE in the main thread and write sequentially
-        with h5py.File(self.dataset_path, "a") as hdf5_file:
-            for patient, features_patient, labels_patient, edge_idx_patient, time_labels_patient in results:
-                if features_patient is None:
-                    continue # Skip if no data was extracted for this patient
-
-                try:
-                    current_patient_features = hdf5_file[patient]["features"].shape[0]
-                    current_patient_labels = hdf5_file[patient]["labels"].shape[0]
-                    current_patient_edge_idx = hdf5_file[patient]["edge_idx"].shape[0]
-                    current_patient_time_labels = hdf5_file[patient]["time_labels"].shape[0]
-
-                    hdf5_file[patient]["features"].resize(
-                        (current_patient_features + features_patient.shape[0]), axis=0
-                    )
-                    hdf5_file[patient]["features"][-features_patient.shape[0]:] = features_patient
-
-                    hdf5_file[patient]["labels"].resize(
-                        (current_patient_labels + labels_patient.shape[0]), axis=0
-                    )
-                    hdf5_file[patient]["labels"][-labels_patient.shape[0]:] = labels_patient
-
-                    hdf5_file[patient]["time_labels"].resize(
-                        (current_patient_time_labels + time_labels_patient.shape[0]), axis=0
-                    )
-                    hdf5_file[patient]["time_labels"][-time_labels_patient.shape[0]:] = time_labels_patient
-
-                    hdf5_file[patient]["edge_idx"].resize(
-                        (current_patient_edge_idx + edge_idx_patient.shape[0]), axis=0
-                    )
-                    hdf5_file[patient]["edge_idx"][-edge_idx_patient.shape[0]:] = edge_idx_patient
-                    
-                    self.sample_count += features_patient.shape[0]
-                    self.logger.info(f"Dataset for patient {patient} appended successfully!.")
-                
-                except Exception as e:
-                    self.logger.error(f"Cannot append {patient}: {e}")
-                
-                # FIX 2: Force RAM to clear immediately after writing to the file
-                del features_patient, labels_patient, edge_idx_patient, time_labels_patient
-                import gc
-                gc.collect()
-
         pool.close()
         pool.join()
         if pool:
             pool.terminate()
             pool = None  # workaround for mp bug
+        for sample_count in result:
+            self.sample_count += sample_count
 
     def get_dataset(self):
         folder_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -780,7 +783,6 @@ class HDFDatasetLoader:
     """
 
     root: str
-    hdf5_path: str = None  # <-- ADD THIS: explicitly point to the master file
     train_val_split_ratio: float = 0.0
     loso_subject: Union[str, None] = None
     sampling_f: int = 60
@@ -798,25 +800,20 @@ class HDFDatasetLoader:
     kfold_cval_mode: bool = False
 
     def _create_paths(self) -> List[str]:
-        # date_now = datetime.now().strftime("%d.%m.%Y %H:%M:%S,%f")
-        # timestep_ms = str(
-        #     (
-        #         datetime.strptime(date_now, "%d.%m.%Y %H:%M:%S,%f").timestamp()
-        #         * 1000
-        #     )
-        # )
+        date_now = datetime.now().strftime("%d.%m.%Y %H:%M:%S,%f")
+        timestep_ms = str(
+            (
+                datetime.strptime(date_now, "%d.%m.%Y %H:%M:%S,%f").timestamp()
+                * 1000
+            )
+        )
 
-        # main_root_dir = os.path.join(self.root, timestep_ms)
-
-        # --- REMOVED TIMESTAMP AND SHUTIL.RMTREE ---
-        main_root_dir = os.path.join(self.root, "processed")
-
-        # try:
-        #     if not len(os.listdir(main_root_dir)) == 0:
-        #         shutil.rmtree(main_root_dir)
-        # except FileNotFoundError:
-        #     self.logger.info("No processed cache found.")
-
+        main_root_dir = os.path.join(self.root, timestep_ms)
+        try:
+            if not len(os.listdir(main_root_dir)) == 0:
+                shutil.rmtree(main_root_dir)
+        except FileNotFoundError:
+            self.logger.info("No processed cache found.")
         if not os.path.exists(main_root_dir):
             os.makedirs(main_root_dir)
             self.logger.info("Created processed cache folder.")
@@ -898,12 +895,8 @@ class HDFDatasetLoader:
 
     def _determine_dataset_characteristics(self) -> None:
         """Method to determine dataset characteristics."""
-        # self.hdf_data_path = f"{self.root}/dataset.hdf5"
-        # print(self.root)
-        # --- CHANGED: Use explicit master path ---
-        self.hdf_data_path = self.hdf5_path if self.hdf5_path else f"{self.root}/dataset.hdf5"
-        
-        print(f"Loading master dataset from: {self.hdf_data_path}")
+        self.hdf_data_path = f"{self.root}/dataset.hdf5"
+        print(self.root)
         with h5py.File(self.hdf_data_path, "r") as hdf5_file:
             self.patient_list = list(hdf5_file.keys())
             self.n_channels, self.n_features = hdf5_file[self.patient_list[0]][
