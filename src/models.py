@@ -214,12 +214,9 @@ class GATv2Lightning(pl.LightningModule):
             Linear(
                 hidden_dim * n_heads, 512, weight_initializer="kaiming_uniform"
             ),
-            nn.Dropout(0.4),  
+            nn.Dropout(0.2),  
             act_fn,
             Linear(512, 256, weight_initializer="kaiming_uniform"),
-            nn.Dropout(0.2),
-            act_fn,
-            Linear(256, 128, weight_initializer="kaiming_uniform"),
             nn.Dropout(0.1),
             act_fn,
             Linear(
