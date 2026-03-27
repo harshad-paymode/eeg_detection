@@ -323,159 +323,160 @@ def loso_training():
 
 def kfold_cval():
     """Initialize kfold cross validation."""
-    writer = HDFDataset_Writer(
-        seizure_lookback=SEIZURE_LOOKBACK,
-        buffer_time=BUFFER_TIME,
-        sample_timestep=TIMESTEP,
-        inter_overlap=INTER_OVERLAP,
-        preictal_overlap=PREICTAL_OVERLAP,
-        ictal_overlap=ICTAL_OVERLAP,
-        downsample=DOWNSAMPLING_F,
-        sampling_f=SFREQ,
-        smote=SMOTE_FLAG,
-        connectivity_metric=CONNECTIVITY_METRIC,
-        npy_dataset_path=NPY_DATA_DIR,
-        event_tables_path=EVENT_TABLES_DIR,
-        cache_folder=CACHE_DIR,
-    )
-    cache_file_path = writer.get_dataset()
+    # writer = HDFDataset_Writer(
+    #     seizure_lookback=SEIZURE_LOOKBACK,
+    #     buffer_time=BUFFER_TIME,
+    #     sample_timestep=TIMESTEP,
+    #     inter_overlap=INTER_OVERLAP,
+    #     preictal_overlap=PREICTAL_OVERLAP,
+    #     ictal_overlap=ICTAL_OVERLAP,
+    #     downsample=DOWNSAMPLING_F,
+    #     sampling_f=SFREQ,
+    #     smote=SMOTE_FLAG,
+    #     connectivity_metric=CONNECTIVITY_METRIC,
+    #     npy_dataset_path=NPY_DATA_DIR,
+    #     event_tables_path=EVENT_TABLES_DIR,
+    #     cache_folder=CACHE_DIR,
+    # )
+    # cache_file_path = writer.get_dataset()
 
-    loader = HDFDatasetLoader(
-        root=cache_file_path,
-        train_val_split_ratio=TRAIN_VAL_SPLIT,
-        loso_subject=None,
-        sampling_f=DOWNSAMPLING_F,
-        extract_features=MNE_FEATURES,
-        fft=FFT,
-        seed=SEED,
-        used_classes_dict=USED_CLASSES_DICT,
-        normalize_with=NORMALIZING_PERIOD,
-        kfold_cval_mode=KFOLD_CVAL_MODE,
-    )
-
-    full_data_path = loader.get_datasets()[0]
-
-    print(f"this is the full dataset path {full_data_path}")
-    # full_dataset = GraphDataset(full_data_path)
-    # features_shape = full_dataset[0].x.shape[-1]
-    # label_array = np.array([data.y.item() for data in full_dataset]).reshape(-1, 1)
-    # patient_id_array = np.array(
-    #     [data.patient_id.item() for data in full_dataset]
-    # ).reshape(-1, 1)
-    # class_labels_patient_labels = np.concatenate(
-    #     [label_array, patient_id_array], axis=1
+    # loader = HDFDatasetLoader(
+    #     root=cache_file_path,
+    #     train_val_split_ratio=TRAIN_VAL_SPLIT,
+    #     loso_subject=None,
+    #     sampling_f=DOWNSAMPLING_F,
+    #     extract_features=MNE_FEATURES,
+    #     fft=FFT,
+    #     seed=SEED,
+    #     used_classes_dict=USED_CLASSES_DICT,
+    #     normalize_with=NORMALIZING_PERIOD,
+    #     kfold_cval_mode=KFOLD_CVAL_MODE,
     # )
 
-    # torch_geometric.seed_everything(42)
+    full_data_path = PREPROCESSED_DATA_DIR
 
-    # device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    # torch_device = torch.device(device)
-    # precision = "bf16-mixed" if device == "cpu" else "16-mixed"
-    # strategy = pl.strategies.SingleDeviceStrategy(device=torch_device)
-    # kfold = MultilabelStratifiedKFold(n_splits=N_SPLITS, random_state=42, shuffle=True)
+    
 
-    # for fold, (train_idx, test_idx) in enumerate(
-    #     kfold.split(np.zeros(len(full_dataset)), class_labels_patient_labels)
-    # ):
-    #     print(f"Fold {fold}")
-    #     wandb.init(
-    #         project="sano_eeg_final_runs",
-    #         group=EXP_NAME,
-    #         name=f"fold_{fold}",
-    #         config=INITIAL_CONFIG,
-    #     )
-    #     CONFIG = wandb.config
-    #     train_labels = class_labels_patient_labels[train_idx]
-    #     splitter = StratifiedShuffleSplit(n_splits=1, test_size=0.1, random_state=42)
-    #     sub_train_idx, val_idx = next(splitter.split(train_idx, train_labels))
-    #     train_dataset = [full_dataset[idx] for idx in sub_train_idx]
-    #     valid_dataset = [full_dataset[idx] for idx in val_idx]
-    #     test_data = [full_dataset[idx] for idx in test_idx]
-    #     test_save_data = os.path.join(
-    #         "saved_folds_trial", EXP_NAME, f"fold_{fold}/ data.pt"
-    #     )
-    #     save_data_list(test_data, test_save_data)
-    #     train_dataloader = DataLoader(
-    #         train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=False
-    #     )
+    full_dataset = GraphDataset(full_data_path)
+    features_shape = full_dataset[0].x.shape[-1]
+    label_array = np.array([data.y.item() for data in full_dataset]).reshape(-1, 1)
+    patient_id_array = np.array(
+        [data.patient_id.item() for data in full_dataset]
+    ).reshape(-1, 1)
+    class_labels_patient_labels = np.concatenate(
+        [label_array, patient_id_array], axis=1
+    )
 
-    #     valid_dataloader = DataLoader(
-    #         valid_dataset,
-    #         batch_size=BATCH_SIZE,
-    #         shuffle=False,
-    #         drop_last=False,
-    #     )
-    #     test_dataloader = DataLoader(
-    #         test_data, batch_size=BATCH_SIZE, shuffle=False, drop_last=False
-    #     )
+    torch_geometric.seed_everything(42)
 
-    #     train_labels = torch.cat([data.y for data in train_dataset])
-    #     label_properties = torch.unique(train_labels, return_counts=True)
-    #     if sum(CONFIG.used_classes_dict.values()) == 3:
-    #         """Multiclass weights"""
-    #         class_weight = torch.from_numpy(
-    #             compute_class_weight(
-    #                 "balanced",
-    #                 classes=label_properties[0].numpy(),
-    #                 y=train_labels.numpy(),
-    #             )
-    #         ).float()
-    #     else:
-    #         """Binary weights"""
-    #         class_weight = torch.tensor(
-    #             [label_properties[1][0] / label_properties[1][1]]
-    #         )
-    #     n_classes = sum(USED_CLASSES_DICT.values())
-    #     features_shape = train_dataset[0].x.shape[-1]
-    #     device_name = "cuda:0" if torch.cuda.is_available() else "cpu"
-    #     precision = "bf16-mixed" if device_name == "cpu" else "16-mixed"
-    #     strategy = pl.strategies.SingleDeviceStrategy(device=device_name)
-    #     wandb_logger = pl.loggers.WandbLogger(log_model=False)
-    #     early_stopping = pl.callbacks.EarlyStopping(
-    #         monitor="val_loss", patience=10, verbose=False, mode="min"
-    #     )
-    #     best_checkpoint_callback = pl.callbacks.ModelCheckpoint(
-    #         monitor="val_loss",
-    #         save_top_k=1,
-    #         mode="min",
-    #         verbose=False,
-    #         dirpath=f"test_checkpoints/{EXP_NAME}/fold_{fold}",
-    #         filename="{epoch}-{val_loss:.3f}",
-    #     )
-    #     callbacks = [early_stopping, best_checkpoint_callback]
-    #     trainer = pl.Trainer(
-    #         accelerator="auto",
-    #         precision=precision,
-    #         devices=1,
-    #         max_epochs=EPOCHS,
-    #         enable_progress_bar=True,
-    #         strategy=strategy,
-    #         deterministic=False,
-    #         log_every_n_steps=1,
-    #         enable_model_summary=False,
-    #         logger=wandb_logger,
-    #         callbacks=callbacks,
-    #     )
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    torch_device = torch.device(device)
+    precision = "bf16-mixed" if device == "cpu" else "16-mixed"
+    strategy = pl.strategies.SingleDeviceStrategy(device=torch_device)
+    kfold = MultilabelStratifiedKFold(n_splits=N_SPLITS, random_state=42, shuffle=True)
 
-    #     model = GATv2Lightning(
-    #         features_shape,
-    #         n_classes=n_classes,
-    #         n_gat_layers=CONFIG.n_gat_layers,
-    #         hidden_dim=CONFIG.hidden_dim,
-    #         n_heads=CONFIG.n_heads,
-    #         slope=CONFIG.slope,
-    #         dropout=CONFIG.dropout,
-    #         pooling_method=CONFIG.pooling_method,
-    #         activation=CONFIG.activation,
-    #         norm_method=CONFIG.norm_method,
-    #         lr=CONFIG.lr,
-    #         weight_decay=CONFIG.weight_decay,
-    #         fft_mode=FFT,
-    #         class_weights=class_weight,
-    #     )
-    #     trainer.fit(model, train_dataloader, valid_dataloader)
-    #     trainer.test(model, test_dataloader, ckpt_path="best")
-    #     wandb.finish()
+    for fold, (train_idx, test_idx) in enumerate(
+        kfold.split(np.zeros(len(full_dataset)), class_labels_patient_labels)
+    ):
+        print(f"Fold {fold}")
+        wandb.init(
+            project="sano_eeg_final_runs",
+            group=EXP_NAME,
+            name=f"fold_{fold}",
+            config=INITIAL_CONFIG,
+        )
+        CONFIG = wandb.config
+        train_labels = class_labels_patient_labels[train_idx]
+        splitter = StratifiedShuffleSplit(n_splits=1, test_size=0.1, random_state=42)
+        sub_train_idx, val_idx = next(splitter.split(train_idx, train_labels))
+        train_dataset = [full_dataset[idx] for idx in sub_train_idx]
+        valid_dataset = [full_dataset[idx] for idx in val_idx]
+        test_data = [full_dataset[idx] for idx in test_idx]
+        test_save_data = os.path.join(
+            "saved_folds_trial", EXP_NAME, f"fold_{fold}/ data.pt"
+        )
+        save_data_list(test_data, test_save_data)
+        train_dataloader = DataLoader(
+            train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=False
+        )
+
+        valid_dataloader = DataLoader(
+            valid_dataset,
+            batch_size=BATCH_SIZE,
+            shuffle=False,
+            drop_last=False,
+        )
+        test_dataloader = DataLoader(
+            test_data, batch_size=BATCH_SIZE, shuffle=False, drop_last=False
+        )
+
+        train_labels = torch.cat([data.y for data in train_dataset])
+        label_properties = torch.unique(train_labels, return_counts=True)
+        if sum(CONFIG.used_classes_dict.values()) == 3:
+            """Multiclass weights"""
+            class_weight = torch.from_numpy(
+                compute_class_weight(
+                    "balanced",
+                    classes=label_properties[0].numpy(),
+                    y=train_labels.numpy(),
+                )
+            ).float()
+        else:
+            """Binary weights"""
+            class_weight = torch.tensor(
+                [label_properties[1][0] / label_properties[1][1]]
+            )
+        n_classes = sum(USED_CLASSES_DICT.values())
+        features_shape = train_dataset[0].x.shape[-1]
+        device_name = "cuda:0" if torch.cuda.is_available() else "cpu"
+        precision = "bf16-mixed" if device_name == "cpu" else "16-mixed"
+        strategy = pl.strategies.SingleDeviceStrategy(device=device_name)
+        wandb_logger = pl.loggers.WandbLogger(log_model=False)
+        early_stopping = pl.callbacks.EarlyStopping(
+            monitor="val_loss", patience=10, verbose=False, mode="min"
+        )
+        best_checkpoint_callback = pl.callbacks.ModelCheckpoint(
+            monitor="val_loss",
+            save_top_k=1,
+            mode="min",
+            verbose=False,
+            dirpath=f"{SAVE_MODELS_PATH}/{EXP_NAME}/fold_{fold}",
+            filename="{epoch}-{val_loss:.3f}",
+        )
+        callbacks = [early_stopping, best_checkpoint_callback]
+        trainer = pl.Trainer(
+            accelerator="auto",
+            precision=precision,
+            devices=1,
+            max_epochs=EPOCHS,
+            enable_progress_bar=True,
+            strategy=strategy,
+            deterministic=False,
+            log_every_n_steps=1,
+            enable_model_summary=False,
+            logger=wandb_logger,
+            callbacks=callbacks,
+        )
+
+        model = GATv2Lightning(
+            features_shape,
+            n_classes=n_classes,
+            n_gat_layers=CONFIG.n_gat_layers,
+            hidden_dim=CONFIG.hidden_dim,
+            n_heads=CONFIG.n_heads,
+            slope=CONFIG.slope,
+            dropout=CONFIG.dropout,
+            pooling_method=CONFIG.pooling_method,
+            activation=CONFIG.activation,
+            norm_method=CONFIG.norm_method,
+            lr=CONFIG.lr,
+            weight_decay=CONFIG.weight_decay,
+            fft_mode=FFT,
+            class_weights=class_weight,
+        )
+        trainer.fit(model, train_dataloader, valid_dataloader)
+        trainer.test(model, test_dataloader, ckpt_path="best")
+        wandb.finish()
 
     return None
 
