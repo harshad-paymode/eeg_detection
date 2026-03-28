@@ -114,7 +114,7 @@ def train_kfold_cval():
         # Load exactly the same data for all experiments
         fold_dir = os.path.join(FOLD_DATA_DIR, f"fold_{fold}")
         train_dataset = GraphDataset(os.path.join(fold_dir, "train"))
-        valid_dataset = GraphDataset(os.path.join(fold_dir, "valid"))
+        valid_dataset = GraphDataset(os.path.join(fold_dir, "val"))
         test_data = GraphDataset(os.path.join(fold_dir, "test"))
 
         train_dataloader = DataLoader(
