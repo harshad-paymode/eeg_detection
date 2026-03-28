@@ -95,6 +95,7 @@ def compute_prediction_metrics():
         trainer = pl.Trainer(
             accelerator="auto",
             max_epochs=1,
+            devices=1,
             enable_progress_bar=False,
             deterministic=False,
             log_every_n_steps=50,
