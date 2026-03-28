@@ -185,6 +185,7 @@ def compute_prediction_metrics():
 
         # saving fold results
         fold_results = {
+            "fold": fold,
             "AUROC": auroc,
             "F1-score": f1,
             "Sensitivity": recall,
