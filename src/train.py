@@ -168,11 +168,11 @@ def train_kfold_cval():
             precision=precision,
             devices=1,
             max_epochs=EPOCHS,
-            enable_progress_bar=True,
+            enable_progress_bar=False,
             strategy=strategy,
             deterministic=False,
             log_every_n_steps=50,
-            enable_model_summary=False,
+            enable_model_summary=True,
             logger=wandb_logger,
             callbacks=callbacks,
         )
