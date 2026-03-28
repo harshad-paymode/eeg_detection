@@ -70,7 +70,7 @@ def compute_prediction_metrics():
     summary_auroc = []
 
     if INITIAL_CONFIG['mc_dropout']:
-            project_name = "mc_model_eval"
+        project_name = "mc_model_eval"
 
     wandb.init(
         project=project_name,
