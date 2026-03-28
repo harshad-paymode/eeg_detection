@@ -168,7 +168,7 @@ def compute_prediction_metrics():
             [data.y.int().item() for data in dataset]
         ).to(device)
 
-        conf_matrix = conf_matrix_metric(preds, ground_truth).int().numpy()
+        conf_matrix = conf_matrix_metric(preds, ground_truth).cpu().int().numpy()
         specificity = specificity_metric(preds, ground_truth).item()
         recall = recall_metric(preds, ground_truth).item()
         f1 = f1_metric(preds, ground_truth).item()
