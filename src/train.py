@@ -46,7 +46,7 @@ parser.add_argument("--weights", action="store_true", default=False)
 parser.add_argument("--use_ictal_periods", action="store_true", default=False)
 parser.add_argument("--use_preictal_periods", action="store_true", default=False)
 parser.add_argument("--use_interictal_periods", action="store_true", default=False)
-parser.add_argument("--dropout_on",action="store_true",deafulat=False)
+parser.add_argument("--dropout_on",action="store_true",default=False)
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--n_splits", type=int, default=10)
 
