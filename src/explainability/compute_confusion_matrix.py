@@ -68,6 +68,17 @@ def compute_prediction_metrics():
     summary_recall = []
     summary_f1 = []
     summary_auroc = []
+
+    if INITIAL_CONFIG['mc_dropout']:
+            project_name = "mc_model_eval"
+
+    wandb.init(
+        project=project_name,
+        name=f"confusion_matrix_and_accuracy",
+        config= INITIAL_CONFIG,
+    )
+
+    CONFIG = wandb.config
     
     for n, fold in enumerate(fold_list):
 
@@ -77,16 +88,6 @@ def compute_prediction_metrics():
         f1_metric = F1Score("multiclass", num_classes=3).to(device)
         auroc_metric = AUROC("multiclass", num_classes=3).to(device)
 
-        if INITIAL_CONFIG['mc_dropout']:
-            project_name = "mc_model_eval"
-
-        wandb.init(
-            project=project_name,
-            name=f"fold_{fold}",
-            config= INITIAL_CONFIG,
-        )
-
-        CONFIG = wandb.config
         print(f"Evaluating Fold {n} | MC Dropout: {CONFIG.mc_dropout}")
         checkpoint_path = os.path.join(
             checkpoint_fold_list[n], os.listdir(checkpoint_fold_list[n])[0]
@@ -192,8 +193,7 @@ def compute_prediction_metrics():
         }
         
         wandb.log(fold_results)
-        
-        wandb.finish()
+
 
         dir_fold = os.path.join(SAVE_DIR_METRICS, f"fold_{n}")
         os.makedirs(dir_fold,exist_ok=True)
@@ -207,23 +207,18 @@ def compute_prediction_metrics():
         ) as f:
             json.dump(fold_results, f)
 
-    
-    wandb.init(
-        project=project_name,
-        name=f"summary_of_metrics"
-    )
     # saving summary results
     summary_results = {
-        "AUROC": mean(summary_auroc),
-        "AUROC_std": stdev(summary_auroc),
-        "F1-score": mean(summary_f1),
-        "F1-score_std": stdev(summary_f1),
-        "Sensitivity": mean(summary_recall),
-        "Sensitivity_std": stdev(summary_recall),
-        "Specificity": mean(summary_specificity),
-        "Specificity_std": stdev(summary_specificity),
-        "Balanced Accuracy": mean(summary_balanced_acc),
-        "Balanced Accuracy_std": stdev(summary_balanced_acc),
+        "final_mean_AUROC": mean(summary_auroc),
+        "final_AUROC_std": stdev(summary_auroc),
+        "final_mean_F1-score": mean(summary_f1),
+        "final_F1-score_std": stdev(summary_f1),
+        "final_mean_Sensitivity": mean(summary_recall),
+        "final_Sensitivity_std": stdev(summary_recall),
+        "final_Specificity": mean(summary_specificity),
+        "final_Specificity_std": stdev(summary_specificity),
+        "final_Balanced Accuracy": mean(summary_balanced_acc),
+        "final_Balanced Accuracy_std": stdev(summary_balanced_acc),
     }
 
     wandb.log(summary_results)
