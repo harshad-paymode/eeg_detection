@@ -44,12 +44,7 @@ def compute_prediction_metrics():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     project_name ="base_model_eval"
 
-    
-    if os.path.exists(SAVE_DIR_METRICS):
-        print("Save directory already exists")
-        print(SAVE_DIR_METRICS)
-        return
-    os.makedirs(SAVE_DIR_METRICS)
+    os.makedirs(SAVE_DIR_METRICS,exist_ok = True)
     
     fold_list = os.listdir(CHECKPOINT_DIR)
     checkpoint_fold_list = [
@@ -77,6 +72,7 @@ def compute_prediction_metrics():
 
         if INITIAL_CONFIG['mc_dropout']:
             project_name = "mc_model_eval"
+            
         wandb.init(
             project=project_name,
             name=f"fold_{fold}",
@@ -189,12 +185,15 @@ def compute_prediction_metrics():
 
         wandb.finish()
 
+        dir_fold = os.path.join(SAVE_DIR_METRICS, f"fold_{n}")
+        os.makedirs(dir_fold,exist_ok=True)
+
         np.save(
-            os.path.join(SAVE_DIR_METRICS, f"fold_{n}_conf_matrix.npy"),
+            os.path.join(dir_fold, "conf_matrix.npy"),
             conf_matrix,
         )
         with open(
-            os.path.join(SAVE_DIR_METRICS, f"fold_{n}_results.json"), "w"
+            os.path.join(dir_fold, f"results.json"), "w"
         ) as f:
             json.dump(fold_results, f)
 
