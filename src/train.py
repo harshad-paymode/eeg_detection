@@ -93,18 +93,17 @@ def train_kfold_cval():
     
     result_list_auroc = []
     result_list_f1 = []
-    
+    project_name = ""
     for fold in range(N_SPLITS):
         print(f"Training Fold {fold}")
-        if INITIAL_CONFIG.dropout_on:
-            wandb.init(
-                project="eeg_dropout_model",
-                name=f"fold_{fold}",
-                config=INITIAL_CONFIG,
-            )
+        if INITIAL_CONFIG["dropout_on"]:
+            project_name="eeg_dropout_model"
         else:
-            wandb.init(
-                project="eeg_base_model",
+            project_name="eeg_base_model"
+            
+        
+        wandb.init(
+                project=project_name,
                 name=f"fold_{fold}",
                 config=INITIAL_CONFIG,
             )
@@ -166,8 +165,8 @@ def train_kfold_cval():
             precision=precision,
             devices=1,
             max_epochs=EPOCHS,
+            strategy = strategy,
             enable_progress_bar=False,
-            strategy=strategy,
             deterministic=False,
             log_every_n_steps=50,
             enable_model_summary=True,
@@ -201,28 +200,33 @@ def train_kfold_cval():
         fold_f1 = eval_results.get("test_f1_score", 0)
         result_list_f1.append(fold_f1)
         
-        if fold == N_SPLITS - 1:
-            # logging final auroc
-            mean_auroc = mean(result_list_auroc)
-            stdev_auroc = round(stdev(result_list_auroc), 4)
-            sem_auroc = round(stdev_auroc / (len(result_list_auroc) ** 0.5), 4) if len(result_list_auroc) > 0 else 0
-            wandb.log({
-                "final_mean_AUROC": mean_auroc,
-                "final_stdev_AUROC": stdev_auroc,
-                "final_sem_AUROC": sem_auroc
-            }) 
-
-            # logging final f1 score
-            mean_f1 = mean(result_list_f1)
-            stdev_f1 = round(stdev(result_list_f1), 4)
-            sem_f1 = round(stdev_f1 / (len(result_list_f1) ** 0.5), 4) if len(result_list_f1) > 0 else 0
-            wandb.log({
-                "final_mean_f1": mean_f1,
-                "final_stdev_f1": stdev_f1,
-                "final_sem_f1": sem_f1
-            })        
-
         wandb.finish()
+
+    #Logging training summary
+    
+    wandb.init(project=project_name, name="kfold_summary")
+
+    # logging final auroc
+    mean_auroc = mean(result_list_auroc)
+    stdev_auroc = round(stdev(result_list_auroc), 4)
+    sem_auroc = round(stdev_auroc / (len(result_list_auroc) ** 0.5), 4)
+    wandb.log({
+        "final_mean_AUROC": mean_auroc,
+        "final_stdev_AUROC": stdev_auroc,
+        "final_sem_AUROC": sem_auroc
+    }) 
+
+    # logging final f1 score
+    mean_f1 = mean(result_list_f1)
+    stdev_f1 = round(stdev(result_list_f1), 4)
+    sem_f1 = round(stdev_f1 / (len(result_list_f1) ** 0.5), 4) if len(result_list_f1) > 0 else 0
+    wandb.log({
+        "final_mean_f1": mean_f1,
+        "final_stdev_f1": stdev_f1,
+        "final_sem_f1": sem_f1
+    })
+
+    wandb.finish()
 
     return None
 
