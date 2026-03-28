@@ -113,7 +113,7 @@ def train_kfold_cval():
         CONFIG = wandb.config
         
         # Load exactly the same data for all experiments
-        fold_dir = os.path.join("saved_folds_trial", f"fold_{fold}")
+        fold_dir = os.path.join(FOLD_DATA_DIR, f"fold_{fold}")
         train_dataset = torch.load(os.path.join(fold_dir, "train_data.pt"))
         valid_dataset = torch.load(os.path.join(fold_dir, "valid_data.pt"))
         test_data = torch.load(os.path.join(fold_dir, "test_data.pt"))
@@ -207,25 +207,21 @@ def train_kfold_cval():
             # logging final auroc
             mean_auroc = mean(result_list_auroc)
             stdev_auroc = round(stdev(result_list_auroc), 4)
-            measured_auroc = mean_auroc * (1 / stdev_auroc) if stdev_auroc != 0 else 0
             sem_auroc = round(stdev_auroc / (len(result_list_auroc) ** 0.5), 4) if len(result_list_auroc) > 0 else 0
             wandb.log({
                 "final_mean_AUROC": mean_auroc,
                 "final_stdev_AUROC": stdev_auroc,
-                "final_sem_AUROC": sem_auroc,
-                "final_measured_AUROC": measured_auroc
+                "final_sem_AUROC": sem_auroc
             }) 
 
             # logging final f1 score
             mean_f1 = mean(result_list_f1)
             stdev_f1 = round(stdev(result_list_f1), 4)
-            measured_f1 = mean_f1 * (1 / stdev_f1) if stdev_f1 != 0 else 0
             sem_f1 = round(stdev_f1 / (len(result_list_f1) ** 0.5), 4) if len(result_list_f1) > 0 else 0
             wandb.log({
                 "final_mean_f1": mean_f1,
                 "final_stdev_f1": stdev_f1,
-                "final_sem_f1": sem_f1,
-                "final_measured_f1": measured_f1
+                "final_sem_f1": sem_f1
             })        
 
         wandb.finish()
