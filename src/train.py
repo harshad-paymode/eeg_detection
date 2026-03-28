@@ -79,7 +79,7 @@ INITIAL_CONFIG = dict(
     seed=SEED,
     n_gat_layers=1,
     hidden_dim=32,
-    dropout=0.2,
+    dropout_on=args.dropout_on,
     slope=0.0025,
     pooling_method="mean",
     norm_method="batch",
@@ -106,7 +106,7 @@ def train_kfold_cval():
     for fold in range(N_SPLITS):
         print(f"Training Fold {fold}")
         wandb.init(
-            project="eeg_final_launch",
+            project="eeg_base_model",
             name=f"fold_{fold}",
             config=INITIAL_CONFIG,
         )
@@ -184,7 +184,7 @@ def train_kfold_cval():
             hidden_dim=CONFIG.hidden_dim,
             n_heads=CONFIG.n_heads,
             slope=CONFIG.slope,
-            dropout=CONFIG.dropout,
+            dropout_on=CONFIG.dropout_on,
             pooling_method=CONFIG.pooling_method,
             activation=CONFIG.activation,
             norm_method=CONFIG.norm_method,
