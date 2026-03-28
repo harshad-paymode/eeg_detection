@@ -35,14 +35,14 @@ os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 torch.backends.cudnn.benchmark = False
 torch.set_float32_matmul_precision("medium")
 parser = ArgumentParser()
-
-parser.add_argument("--weights", action="store_true", default=False) 
-parser.add_argument("--train_test_split", type=float, default=0.0)
+ 
 parser.add_argument("--fft", action="store_true", default=False)
-parser.add_argument("--epochs", type=int, default=25)
 parser.add_argument("--batch_size", type=int, default=256)
 parser.add_argument("--saved_models_dir",type=str,default="data/models")
-parser.add_argument("--fold_data_dir",type=str,default = "")
+parser.add_argument("--fold_data_dir",type=str,default = "data/saved_folds")
+parser.add_argument("--train_test_split", type=float, default=0.0)
+parser.add_argument("--epochs", type=int, default=25)
+parser.add_argument("--weights", action="store_true", default=False)
 parser.add_argument("--use_ictal_periods", action="store_true", default=False)
 parser.add_argument("--use_preictal_periods", action="store_true", default=False)
 parser.add_argument("--use_interictal_periods", action="store_true", default=False)
