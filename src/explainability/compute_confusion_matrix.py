@@ -72,7 +72,7 @@ def compute_prediction_metrics():
 
         if INITIAL_CONFIG['mc_dropout']:
             project_name = "mc_model_eval"
-            
+
         wandb.init(
             project=project_name,
             name=f"fold_{fold}",
@@ -96,7 +96,7 @@ def compute_prediction_metrics():
         )
         
         # Ensure GraphDataset only loads the specific test folder to prevent data leakage
-        dataset = GraphDataset(os.path.join(data_fold_list[n], "test"))
+        dataset = GraphDataset(data_fold_list[n])
         n_classes = 3
         features_shape = dataset[0].x.shape[-1]
 
