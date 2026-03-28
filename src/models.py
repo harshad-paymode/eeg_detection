@@ -82,6 +82,7 @@ class GATv2Lightning(pl.LightningModule):
                         heads=n_heads,
                         negative_slope=slope,
                         add_self_loops=True,
+                        dropout = 0.1*dropout_on,
                         improved = True,
                         edge_dim=1,
                     ),
@@ -94,38 +95,21 @@ class GATv2Lightning(pl.LightningModule):
             "x, edge_index, edge_attr", feature_extractor_list
         )
 
-        if dropout_on:
-            self.classifier = nn.Sequential(
-                Linear(
-                    hidden_dim * n_heads, 512, weight_initializer="kaiming_uniform"
-                ),
-                nn.Dropout(0.2),  
-                act_fn,
-                Linear(512, 128, weight_initializer="kaiming_uniform"),
-                nn.Dropout(0.1),
-                act_fn,
-                Linear(
-                    128,
-                    classifier_out_neurons,
-                    weight_initializer="kaiming_uniform",
-                ),
-            )
-        else:
-            self.classifier = nn.Sequential(
-                Linear(
-                    hidden_dim * n_heads, 512, weight_initializer="kaiming_uniform"
-                ),
-                nn.Dropout(0.0),  
-                act_fn,
-                Linear(512, 128, weight_initializer="kaiming_uniform"),
-                nn.Dropout(0.0),
-                act_fn,
-                Linear(
-                    128,
-                    classifier_out_neurons,
-                    weight_initializer="kaiming_uniform",
-                ),
-            )
+        self.classifier = nn.Sequential(
+            Linear(
+                hidden_dim * n_heads, 512, weight_initializer="kaiming_uniform"
+            ),
+            nn.Dropout(0.2*dropout_on),  
+            act_fn,
+            Linear(512, 128, weight_initializer="kaiming_uniform"),
+            nn.Dropout(0.1*dropout_on),
+            act_fn,
+            Linear(
+                128,
+                classifier_out_neurons,
+                weight_initializer="kaiming_uniform",
+            ),
+        )
 
         if pooling_method == "mean":
             self.pooling_method = global_mean_pool
