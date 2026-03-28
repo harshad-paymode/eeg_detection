@@ -54,7 +54,6 @@ args = parser.parse_args()
 
 FOLD_DATA_DIR = args.fold_data_dir
 SAVE_MODELS_PATH = args.saved_models_dir
-EVENT_TABLES_DIR = args.event_tables_dir
 WEIGHTS_FLAG = args.weights
 EPOCHS = args.epochs
 FFT = args.fft
@@ -67,7 +66,7 @@ TRAIN_VAL_SPLIT = args.train_test_split
 BATCH_SIZE = args.batch_size
 
 SEED = args.seed
-KFOLD_CVAL_MODE = args.kfold_cval_mode
+KFOLD_CVAL_MODE = True
 N_SPLITS = args.n_splits
 INITIAL_CONFIG = dict(
     weights=WEIGHTS_FLAG,
