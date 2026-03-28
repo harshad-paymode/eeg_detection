@@ -29,7 +29,6 @@ parser.add_argument("--buffer_time", type=int, default=15) # buffer time is to d
 parser.add_argument("--sampling_freq", type=int, default=256)
 parser.add_argument("--downsampling_freq", type=int, default=60)
 parser.add_argument("--smote", action="store_true", default=False)
-parser.add_argument("--weights", action="store_true", default=False) 
 parser.add_argument("--undersample", action="store_true", default=False) 
 parser.add_argument("--train_test_split", type=float, default=0.0)
 parser.add_argument("--fft", action="store_true", default=False)
@@ -55,7 +54,6 @@ SMOTE_FLAG = args.smote
 NPY_DATA_DIR = args.npy_data_dir
 FOLD_DATA_DIR = args.fold_data_dir
 EVENT_TABLES_DIR = args.event_tables_dir
-WEIGHTS_FLAG = args.weights
 UNDERSAMPLE = args.undersample
 FFT = args.fft
 MNE_FEATURES = args.mne_features
@@ -85,7 +83,6 @@ INITIAL_CONFIG = dict(
     buffer_time=BUFFER_TIME,
     normalizing_period=NORMALIZING_PERIOD,
     smote=SMOTE_FLAG,
-    weights=WEIGHTS_FLAG,
     undersampling=UNDERSAMPLE,
     sampling_freq=SFREQ,
     downsampling_freq=DOWNSAMPLING_F,
