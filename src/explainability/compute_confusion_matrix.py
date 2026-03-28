@@ -190,7 +190,9 @@ def compute_prediction_metrics():
             "Specificity": specificity,
             "Balanced Accuracy": balanced_acc,
         }
-
+        
+        wandb.log(fold_results)
+        
         wandb.finish()
 
         dir_fold = os.path.join(SAVE_DIR_METRICS, f"fold_{n}")
