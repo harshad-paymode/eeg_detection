@@ -794,7 +794,7 @@ class HDFDatasetLoader:
         }
     )
     normalize_with: str = "interictal"
-    kfold_cval_mode: bool = False
+    kfold_cval_mode: bool = True
 
     def _create_paths(self) -> List[str]:
         date_now = datetime.now().strftime("%d.%m.%Y %H:%M:%S,%f")
