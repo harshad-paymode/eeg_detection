@@ -40,7 +40,7 @@ from scipy.stats import iqr
 import scipy.signal as signal
 from sklearn.model_selection import train_test_split
 import gc
-import utils.utils as utils
+import src.utils.utils as utils
 from collections import defaultdict
 
 try:
