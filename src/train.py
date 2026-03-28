@@ -1,5 +1,6 @@
 import os
 import warnings
+from torch_geometric.data import Data
 import multiprocessing as mp
 from argparse import ArgumentParser
 from statistics import mean, stdev
@@ -111,9 +112,14 @@ def train_kfold_cval():
         
         # Load exactly the same data for all experiments
         fold_dir = os.path.join(FOLD_DATA_DIR, f"fold_{fold}")
-        train_dataset = torch.load(os.path.join(fold_dir, "train_data.pt"))
-        valid_dataset = torch.load(os.path.join(fold_dir, "valid_data.pt"))
-        test_data = torch.load(os.path.join(fold_dir, "test_data.pt"))
+        train_raw = torch.load(os.path.join(fold_dir, "train_data.pt"))
+        valid_raw = torch.load(os.path.join(fold_dir, "valid_data.pt"))
+        test_raw = torch.load(os.path.join(fold_dir, "test_data.pt"))
+
+        # Reconstruct into PyG Data objects so .y and DataLoader work perfectly
+        train_dataset = [Data(**d) if isinstance(d, dict) else d for d in train_raw]
+        valid_dataset = [Data(**d) if isinstance(d, dict) else d for d in valid_raw]
+        test_data = [Data(**d) if isinstance(d, dict) else d for d in test_raw]
 
         train_dataloader = DataLoader(
             train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=False
