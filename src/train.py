@@ -11,6 +11,7 @@ import lightning.pytorch as pl
 from torch_geometric.loader import DataLoader
 from sklearn.utils.class_weight import compute_class_weight
 from lightning.pytorch.callbacks import TQDMProgressBar
+from utils.dataloader_utils import GraphDataset
 
 from models import GATv2Lightning
 
@@ -112,14 +113,9 @@ def train_kfold_cval():
         
         # Load exactly the same data for all experiments
         fold_dir = os.path.join(FOLD_DATA_DIR, f"fold_{fold}")
-        train_raw = torch.load(os.path.join(fold_dir, "train_data.pt"))
-        valid_raw = torch.load(os.path.join(fold_dir, "valid_data.pt"))
-        test_raw = torch.load(os.path.join(fold_dir, "test_data.pt"))
-
-        # Reconstruct into PyG Data objects so .y and DataLoader work perfectly
-        train_dataset = [Data(**d) if isinstance(d, dict) else d for d in train_raw]
-        valid_dataset = [Data(**d) if isinstance(d, dict) else d for d in valid_raw]
-        test_data = [Data(**d) if isinstance(d, dict) else d for d in test_raw]
+        train_dataset = GraphDataset(os.path.join(fold_dir, "train"))
+        valid_dataset = GraphDataset(os.path.join(fold_dir, "valid"))
+        test_data = GraphDataset(os.path.join(fold_dir, "test"))
 
         train_dataloader = DataLoader(
             train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=False
@@ -132,10 +128,8 @@ def train_kfold_cval():
         )
 
         train_labels = torch.cat([data.y for data in train_dataset])
-        print(f"train labels are {train_labels.numpy()}")
 
         label_properties = torch.unique(train_labels, return_counts=True)
-        print(f"classes name {label_properties[0].numpy()}")
         
         if sum(CONFIG.used_classes_dict.values()) == 3:
             """Multiclass weights"""

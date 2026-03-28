@@ -156,9 +156,9 @@ def generate_and_save_kfold_splits():
         fold_dir = os.path.join(FOLD_DATA_DIR, f"fold_{fold}")
         os.makedirs(fold_dir, exist_ok=True)
         
-        save_data_list(train_dataset, os.path.join(fold_dir, "train_data.pt"))
-        save_data_list(valid_dataset, os.path.join(fold_dir, "valid_data.pt"))
-        save_data_list(test_data, os.path.join(fold_dir, "test_data.pt"))
+        save_data_list(train_dataset, os.path.join(fold_dir, "train", "train_data.pt"))
+        save_data_list(valid_dataset, os.path.join(fold_dir, "val", "valid_data.pt"))
+        save_data_list(test_data, os.path.join(fold_dir, "test", "test_data.pt"))
         
     print("All splits successfully saved.")
 
