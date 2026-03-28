@@ -132,7 +132,10 @@ def train_kfold_cval():
         )
 
         train_labels = torch.cat([data.y for data in train_dataset])
+        print(f"train labels are {train_labels.numpy()}")
+
         label_properties = torch.unique(train_labels, return_counts=True)
+        print(f"classes name {label_properties[0].numpy()}")
         
         if sum(CONFIG.used_classes_dict.values()) == 3:
             """Multiclass weights"""
