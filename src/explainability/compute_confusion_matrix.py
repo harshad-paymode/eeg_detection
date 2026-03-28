@@ -27,7 +27,7 @@ TEST_DATA_DIR = args.test_data_dir
 SAVE_DIR_METRICS = args.save_dir_metrics
 
 INITIAL_CONFIG = dict(
-    dropout_on=args.mc_dropout,
+    mc_dropout=args.mc_dropout,
     n_gat_layers = 1,
     hidden_dim = 32,
     slope = 0.0025,
