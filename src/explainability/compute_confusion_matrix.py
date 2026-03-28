@@ -15,6 +15,13 @@ from argparse import ArgumentParser
 from statistics import mean, stdev
 import wandb
 
+api_key_file = open("/kaggle/working/eeg_detection/src/wandb_api_key.txt", "r")
+API_KEY = api_key_file.read()
+
+api_key_file.close()
+os.environ["WANDB_API_KEY"] = API_KEY
+
+
 parser = ArgumentParser()
 parser.add_argument( "--checkpoint_dir",type=str,default = "saved_models/")
 parser.add_argument("--test_data_dir",type=str,default = "test_data/")
