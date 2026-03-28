@@ -105,11 +105,18 @@ def train_kfold_cval():
     
     for fold in range(N_SPLITS):
         print(f"Training Fold {fold}")
-        wandb.init(
-            project="eeg_base_model",
-            name=f"fold_{fold}",
-            config=INITIAL_CONFIG,
-        )
+        if CONFIG.dropout_on:
+            wandb.init(
+                project="eeg_dropout_model",
+                name=f"fold_{fold}",
+                config=INITIAL_CONFIG,
+            )
+        else:
+            wandb.init(
+                project="eeg_base_model",
+                name=f"fold_{fold}",
+                config=INITIAL_CONFIG,
+            )
         CONFIG = wandb.config
         
         # Load exactly the same data for all experiments
