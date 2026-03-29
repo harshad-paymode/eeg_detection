@@ -51,7 +51,7 @@ INITIAL_CONFIG = dict(
 
 def compute_prediction_metrics():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    project_name = "mc_confusion_eval" if INITIAL_CONFIG['mc_dropout'] else "base_confusion_eval"
+    project_name = "mc_confusion_eval_ood" if INITIAL_CONFIG['mc_dropout'] else "base_confusion_eval_ood"
 
     os.makedirs(SAVE_DIR_METRICS,exist_ok = True)
     
@@ -71,7 +71,7 @@ def compute_prediction_metrics():
     summary_f1 = []
     summary_auroc = []
     temp_file_path = ""
-    
+
     if INITIAL_CONFIG['mc_dropout']:
         temp_file_path = os.path.join(TEMPERATURES_PATH, "optimal_temperatures.json")
         with open(temp_file_path, "r") as f:
