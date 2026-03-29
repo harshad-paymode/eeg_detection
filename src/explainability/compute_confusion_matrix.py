@@ -51,8 +51,7 @@ INITIAL_CONFIG = dict(
 
 def compute_prediction_metrics():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    project_name ="base_model_eval"
-    project_name = "mc_model_eval" if INITIAL_CONFIG['mc_dropout'] else "base_model_eval"
+    project_name = "mc_confusion_eval" if INITIAL_CONFIG['mc_dropout'] else "base_confusion_eval"
 
     os.makedirs(SAVE_DIR_METRICS,exist_ok = True)
     
@@ -134,7 +133,7 @@ def compute_prediction_metrics():
         if CONFIG.mc_dropout:
             model.temperature = optimal_temperatures[fold]
             print(f"Applied Temperature Scaling: {model.temperature:.4f} for {fold}")
-            
+
         loader = DataLoader(dataset, batch_size=1024, shuffle=False)
 
         # ---------------------------------------------------------
