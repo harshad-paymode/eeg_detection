@@ -50,7 +50,7 @@ def calibrate_all_folds(args):
             checkpoint_fold_list[n], os.listdir(checkpoint_fold_list[n])[0]
         )
         
-        # 2. Setup the Trainer (Force GPU if available, single pass)
+        # 2. Setup the Trainer
         trainer = pl.Trainer(
             accelerator="gpu" if torch.cuda.is_available() else "cpu",
             max_epochs=1,
@@ -65,11 +65,21 @@ def calibrate_all_folds(args):
         dataset = GraphDataset(val_data_path)
         features_shape = dataset[0].x.shape[-1]
 
-        # 4. Load the Model
+        # 4. Load the Model with all architecture parameters!
         model = GATv2Lightning.load_from_checkpoint(
             checkpoint_path,
             in_features=features_shape,
             n_classes=3,
+            n_gat_layers=1,
+            hidden_dim=32,
+            n_heads=9,
+            slope=0.0025,
+            dropout_on=args.dropout_on,  # Tied to the arg parser
+            pooling_method="mean",
+            activation="leaky_relu",
+            norm_method="batch",
+            lr=0.0012,
+            weight_decay=0.0078,
             map_location=device,
         )
         
@@ -102,6 +112,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_dir", type=str, default="saved_models/")
     parser.add_argument("--fold_data_dir", type=str, default="data/saved_folds/")
     parser.add_argument("--save_dir", type=str, default="save_temperature/")
+    parser.add_argument("--dropout_on", action="store_true", default=False) # Add this!
     args = parser.parse_args()
     
     calibrate_all_folds(args)
