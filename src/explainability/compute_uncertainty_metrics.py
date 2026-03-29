@@ -79,7 +79,7 @@ def compute_uncertainty_metrics():
     for n, fold in enumerate(fold_list):
 
         ece_metric = MulticlassCalibrationError(num_classes=3, n_bins=15, norm='l1').to(device)
-        brier_metric = BrierScore(num_classes=3).to(device)
+        brier_metric = BrierScore(task ="multiclass", num_classes=3).to(device)
 
         # Init W&B for this specific fold
         wandb.init(
