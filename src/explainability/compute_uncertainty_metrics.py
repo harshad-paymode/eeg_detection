@@ -80,7 +80,7 @@ def compute_uncertainty_metrics():
     for n, fold in enumerate(fold_list):
 
         ece_metric = MulticlassCalibrationError(num_classes=3, n_bins=15, norm='l1').to(device)
-        brier_metric = brier_metric = MeanSquaredError().to(device)
+        brier_metric = MeanSquaredError().to(device)
 
         # Init W&B for this specific fold
         wandb.init(
@@ -135,7 +135,7 @@ def compute_uncertainty_metrics():
         # ---------------------------------------------------------
         if CONFIG.mc_dropout:
             for m in model.modules():
-                if m.__class__.__name__.startswith('Dropout'):
+                if m.__class__.__name__.startswith('Dropout') or 'GAT' in m.__class__.__name__:
                     m.train()
                     m.eval = types.MethodType(lambda self: self.train(), m)
 
