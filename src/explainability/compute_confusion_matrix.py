@@ -50,6 +50,7 @@ INITIAL_CONFIG = dict(
 def compute_prediction_metrics():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     project_name ="base_model_eval"
+    project_name = "mc_model_eval" if INITIAL_CONFIG['mc_dropout'] else "base_model_eval"
 
     os.makedirs(SAVE_DIR_METRICS,exist_ok = True)
     
@@ -69,18 +70,17 @@ def compute_prediction_metrics():
     summary_f1 = []
     summary_auroc = []
 
-    if INITIAL_CONFIG['mc_dropout']:
-        project_name = "mc_model_eval"
-
-    wandb.init(
-        project=project_name,
-        name=f"confusion_matrix_and_accuracy",
-        config= INITIAL_CONFIG,
-    )
-
-    CONFIG = wandb.config
+  
     
     for n, fold in enumerate(fold_list):
+
+        wandb.init(
+            project=project_name,
+            name=f"fold_{fold}",
+            config=INITIAL_CONFIG,
+        )
+
+        CONFIG = wandb.config
 
         conf_matrix_metric = MulticlassConfusionMatrix(3).to(device)
         specificity_metric = Specificity("multiclass", num_classes=3).to(device)
@@ -194,7 +194,7 @@ def compute_prediction_metrics():
         }
         
         wandb.log(fold_results)
-
+        wandb.finish()
 
         dir_fold = os.path.join(SAVE_DIR_METRICS, f"fold_{n}")
         os.makedirs(dir_fold,exist_ok=True)
@@ -222,6 +222,14 @@ def compute_prediction_metrics():
         "final_Balanced Accuracy_std": stdev(summary_balanced_acc),
     }
 
+    # ---------------------------------------------------------
+    # FINAL SUMMARY LOGGING
+    # ---------------------------------------------------------
+    wandb.init(
+        project=project_name,
+        name=f"summary_unc_matrix"
+    )
+    
     wandb.log(summary_results)
 
     wandb.finish()
