@@ -140,6 +140,9 @@ class GATv2Lightning(pl.LightningModule):
             self.recall = Recall(task="binary", threshold=0.5)
             self.specificity = Specificity(task="binary", threshold=0.5)
             self.auroc = AUROC(task="binary")
+
+        self.temperature = 1.0
+        
         self.training_step_outputs: List[torch.Tensor] = []
         self.training_step_gt: List[torch.Tensor] = []
         self.validation_step_outputs: List[torch.Tensor] = []
@@ -151,7 +154,7 @@ class GATv2Lightning(pl.LightningModule):
         h = self.feature_extractor(x, edge_index=edge_index, edge_attr=None)
         h = self.pooling_method(h, pyg_batch)
         h = self.classifier(h)
-        return h
+        return h / self.temperature
 
     def unpack_data_batch(self, data_batch):
         x = data_batch.x
