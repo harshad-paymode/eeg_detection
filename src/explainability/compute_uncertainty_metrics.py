@@ -23,11 +23,13 @@ parser.add_argument("--checkpoint_dir", type=str, default="saved_models/")
 parser.add_argument("--test_data_dir", type=str, default="test_data/")
 parser.add_argument("--save_dir_metrics", type=str, default="save_unc_metrics/")
 parser.add_argument("--mc_dropout", action="store_true", default=False)
+parser.add_argument("--temperature_path",type=str,default ="temperatures/")
 args = parser.parse_args()
 
 CHECKPOINT_DIR = args.checkpoint_dir
 TEST_DATA_DIR = args.test_data_dir
 SAVE_DIR_METRICS = args.save_dir_metrics
+TEMPERATURES_PATH = args.temperature_path
 
 INITIAL_CONFIG = dict(
     mc_dropout=args.mc_dropout,
@@ -76,6 +78,11 @@ def compute_uncertainty_metrics():
     summary_ece = []
     summary_brier = []
     summary_aurc = []
+
+    temp_file_path = os.path.join(TEMPERATURES_PATH, "optimal_temperatures.json")
+    with open(temp_file_path, "r") as f:
+        optimal_temperatures = json.load(f)
+    print(f"Loaded optimal temperatures from {temp_file_path}")
     
     for n, fold in enumerate(fold_list):
 
@@ -128,6 +135,10 @@ def compute_uncertainty_metrics():
             map_location=device,
         )
         
+        if CONFIG.mc_dropout:
+            model.temperature = optimal_temperatures[fold]
+            print(f"Applied Temperature Scaling: {model.temperature:.4f} for {fold}")
+
         loader = DataLoader(dataset, batch_size=1024, shuffle=False)
 
         # ---------------------------------------------------------
