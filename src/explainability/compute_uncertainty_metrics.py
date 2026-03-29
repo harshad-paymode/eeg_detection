@@ -63,7 +63,7 @@ def compute_aurc(probs, targets):
 
 def compute_uncertainty_metrics():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    project_name = "mc_uncertainty_eval" if INITIAL_CONFIG['mc_dropout'] else "base_uncertainty_eval"
+    project_name = "mc_uncertainty_eval_ood" if INITIAL_CONFIG['mc_dropout'] else "base_uncertainty_eval_ood"
 
     os.makedirs(SAVE_DIR_METRICS, exist_ok=True)
     
