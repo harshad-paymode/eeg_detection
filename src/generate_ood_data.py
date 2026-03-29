@@ -2,7 +2,7 @@ import os
 import torch
 import numpy as np
 from argparse import ArgumentParser
-from utils.dataloader_utils import GraphDataset, save_data_list
+from src.utils.dataloader_utils import GraphDataset, save_data_list
 
 class AddGaussianNoiseOOD:
     """
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     parser.add_argument("--dest_dir", type=str, default="data/OOD_folds", 
                         help="Where to save the noisy OOD data")
     parser.add_argument("--snr", type=int, default=0, 
-                        help="SNR in dB. Lower is noisier. 0 is a strong OOD signal.")
+                        help="Signal-to-Noice Ratio in dB. Lower is noisier. 0 is a strong OOD signal.")
     
     args = parser.parse_args()
     
