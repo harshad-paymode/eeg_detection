@@ -56,7 +56,7 @@ def generate_ood_from_folds(src_root, dest_root, snr_db):
         ood_test_data = [ood_transform(test_dataset[i]) for i in range(len(test_dataset))]
         
         # 3. Define save path
-        fold_dest_dir = os.path.join(dest_root, fold, "test")
+        fold_dest_dir = os.path.join(dest_root, fold)
         os.makedirs(fold_dest_dir, exist_ok=True)
         save_path = os.path.join(fold_dest_dir, "test_data_ood.pt")
         
