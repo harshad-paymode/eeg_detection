@@ -7,7 +7,7 @@ import lightning.pytorch as pl
 import os
 import json
 import types
-from torchmetrics.classification import MulticlassCalibrationError, MulticlassBrierScore
+from torchmetrics.classification import MulticlassCalibrationError, BrierScore
 from argparse import ArgumentParser
 from statistics import mean, stdev
 import wandb
@@ -79,7 +79,7 @@ def compute_uncertainty_metrics():
     for n, fold in enumerate(fold_list):
 
         ece_metric = MulticlassCalibrationError(num_classes=3, n_bins=15, norm='l1').to(device)
-        brier_metric = MulticlassBrierScore(num_classes=3).to(device)
+        brier_metric = BrierScore(num_classes=3).to(device)
 
         # Init W&B for this specific fold
         wandb.init(
@@ -203,7 +203,7 @@ def compute_uncertainty_metrics():
         "AURC": mean(summary_aurc),
         "AURC_std": stdev(summary_aurc),
     }
-    
+
     wandb.log(summary_results)
     wandb.finish()
 
