@@ -70,11 +70,13 @@ def compute_prediction_metrics():
     summary_recall = []
     summary_f1 = []
     summary_auroc = []
-
-    temp_file_path = os.path.join(TEMPERATURES_PATH, "optimal_temperatures.json")
-    with open(temp_file_path, "r") as f:
-        optimal_temperatures = json.load(f)
-    print(f"Loaded optimal temperatures from {temp_file_path}")
+    temp_file_path = ""
+    
+    if INITIAL_CONFIG['mc_dropout']:
+        temp_file_path = os.path.join(TEMPERATURES_PATH, "optimal_temperatures.json")
+        with open(temp_file_path, "r") as f:
+            optimal_temperatures = json.load(f)
+        print(f"Loaded optimal temperatures from {temp_file_path}")
     
     for n, fold in enumerate(fold_list):
 
