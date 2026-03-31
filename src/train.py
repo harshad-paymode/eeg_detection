@@ -145,7 +145,7 @@ def train_kfold_cval():
             class_weight = torch.tensor(
                 [label_properties[1][0] / label_properties[1][1]]
             )
-            
+        
         n_classes = sum(USED_CLASSES_DICT.values())
         features_shape = train_dataset[0].x.shape[-1]
         

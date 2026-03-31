@@ -95,17 +95,35 @@ class GATv2Lightning(pl.LightningModule):
             "x, edge_index, edge_attr", feature_extractor_list
         )
 
+        # self.classifier = nn.Sequential(
+        #     Linear(
+        #         hidden_dim * n_heads, 512, weight_initializer="kaiming_uniform"
+        #     ),
+        #     nn.Dropout(0.4*dropout_on),  
+        #     act_fn,
+        #     Linear(512, 128, weight_initializer="kaiming_uniform"),
+        #     nn.Dropout(0.2*dropout_on),
+        #     act_fn,
+        #     Linear(
+        #         128,
+        #         classifier_out_neurons,
+        #         weight_initializer="kaiming_uniform",
+        #     ),
+        # )
         self.classifier = nn.Sequential(
             Linear(
-                hidden_dim * n_heads, 512, weight_initializer="kaiming_uniform"
+                hidden_dim * n_heads, 256, weight_initializer="kaiming_uniform"
             ),
-            nn.Dropout(0.2*dropout_on),  
+            nn.Dropout(0.4*dropout_on),  
             act_fn,
-            Linear(512, 128, weight_initializer="kaiming_uniform"),
-            nn.Dropout(0.1*dropout_on),
+            Linear(256, 128, weight_initializer="kaiming_uniform"),
+            nn.Dropout(0.2*dropout_on),
+            act_fn,
+            Linear(128, 64, weight_initializer="kaiming_uniform"),
+            nn.Dropout(0.2*dropout_on),
             act_fn,
             Linear(
-                128,
+                64,
                 classifier_out_neurons,
                 weight_initializer="kaiming_uniform",
             ),
