@@ -332,18 +332,9 @@ def compute_prediction_metrics():
 
     os.makedirs(SAVE_DIR_METRICS, exist_ok=True)
     
-    fold_list = os.listdir(CHECKPOINT_DIR)
-    checkpoint_fold_list = [os.path.join(CHECKPOINT_DIR, fold) for fold in fold_list]
+    fold_list = [f for f in os.listdir(CHECKPOINT_DIR) if f.startswith("fold_")]
     fold_list.sort()
-    checkpoint_fold_list.sort()
     
-    if OOD_DATA:
-        patient_list = [p for p in os.listdir(TEST_DATA_DIR) if os.path.isdir(os.path.join(TEST_DATA_DIR, p))]
-        patient_list.sort()
-    else:
-        data_fold_list = [os.path.join(TEST_DATA_DIR, fold) for fold in fold_list]
-        data_fold_list.sort()
-
     summary_conf_matrix = np.zeros((3, 3))
     summary_balanced_acc, summary_specificity, summary_recall, summary_f1, summary_auroc = [], [], [], [], []
 
@@ -351,16 +342,31 @@ def compute_prediction_metrics():
         temp_file_path = os.path.join(TEMPERATURES_PATH, "optimal_temperatures.json")
         with open(temp_file_path, "r") as f:
             optimal_temperatures = json.load(f)
-        print(f"Loaded optimal temperatures from {temp_file_path}")
-    
+
     for n, fold in enumerate(fold_list):
         print(f"Evaluating Fold {n} | MC Dropout: {INITIAL_CONFIG['mc_dropout']}")
-        checkpoint_path = os.path.join(checkpoint_fold_list[n], os.listdir(checkpoint_fold_list[n])[0])
         
-        # Load Model Once Per Fold
+        # 1. Determine exact test targets for this fold
+        if OOD_DATA:
+            # OOD targets: /ood_data/chb22, /ood_data/chb23, etc.
+            patient_list = [p for p in os.listdir(TEST_DATA_DIR) if os.path.isdir(os.path.join(TEST_DATA_DIR, p))]
+            patient_list.sort()
+            test_dirs = [os.path.join(TEST_DATA_DIR, p) for p in patient_list]
+            log_names = [f"{fold}_{p}" for p in patient_list]
+        else:
+            # ID target: /test_data/fold_X
+            test_dirs = [os.path.join(TEST_DATA_DIR, fold)]
+            log_names = [f"fold_{fold}"]
+
+        checkpoint_fold_dir = os.path.join(CHECKPOINT_DIR, fold)
+        checkpoint_path = os.path.join(checkpoint_fold_dir, os.listdir(checkpoint_fold_dir)[0])
+        
+        # Grab features shape dynamically from the first target directory
+        features_shape = GraphDataset(test_dirs[0])[0].x.shape[-1]
+        
         model = GATv2Lightning.load_from_checkpoint(
             checkpoint_path,
-            in_features=GraphDataset(os.path.join(TEST_DATA_DIR, patient_list[0]) if OOD_DATA else data_fold_list[n])[0].x.shape[-1],
+            in_features=features_shape,
             n_classes=3,
             n_gat_layers=INITIAL_CONFIG['n_gat_layers'],
             hidden_dim=INITIAL_CONFIG['hidden_dim'],
@@ -377,7 +383,6 @@ def compute_prediction_metrics():
         
         if INITIAL_CONFIG['mc_dropout']:
             model.temperature = optimal_temperatures[fold]
-            print(f"Applied Temperature Scaling: {model.temperature:.4f} for {fold}")
 
         wandb_logger = pl.loggers.WandbLogger(log_model=False)
         trainer = pl.Trainer(
@@ -385,13 +390,10 @@ def compute_prediction_metrics():
             deterministic=False, logger=wandb_logger, enable_model_summary=False,
         )
 
-        test_dirs = [os.path.join(TEST_DATA_DIR, p) for p in patient_list] if OOD_DATA else [data_fold_list[n]]
-        log_names = [f"{fold}_{p}" for p in patient_list] if OOD_DATA else [f"fold_{fold}"]
-
         fold_acc, fold_spec, fold_rec, fold_f1, fold_auc = [], [], [], [], []
         fold_conf_matrix = np.zeros((3, 3))
 
-        # Evaluate Each Target (Patient or Single Fold Dir)
+        # Evaluate Each Target (3 Patients for OOD, 1 Fold for ID)
         for t_dir, log_name in zip(test_dirs, log_names):
             wandb.init(project=project_name, name=log_name, config=INITIAL_CONFIG)
             
