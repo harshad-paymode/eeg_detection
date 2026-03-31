@@ -214,7 +214,7 @@ def generate_and_save_kfold_splits():
     # )
 
     # full_data_path = loader.get_datasets()[0]
-    full_data_path = "/home/harshad03897/cloud_drive/cache/2026-03-27_07-49-47/1774598111791.617/train/"
+    full_data_path = "/home/harshad03897/cloud_drive/OOD_data/"
     full_dataset = GraphDataset(full_data_path)
     
     label_array = np.array([data.y.item() for data in full_dataset]).reshape(-1, 1)

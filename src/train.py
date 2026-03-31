@@ -99,9 +99,9 @@ def train_kfold_cval():
     for fold in range(N_SPLITS):
         print(f"Training Fold {fold}")
         if INITIAL_CONFIG["dropout_on"]:
-            project_name="eeg_dropout_model"
+            project_name="eeg_dropout_model_ood"
         else:
-            project_name="eeg_base_model"
+            project_name="eeg_base_model_ood"
             
         
         wandb.init(
