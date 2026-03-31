@@ -198,7 +198,7 @@ def compute_prediction_metrics():
         summary_auroc.append(mean(fold_auc))
 
     # Final Summary Logging
-    wandb.init(project=project_name, name="summary_unc_matrix")
+    wandb.init(project=project_name, name="summary_confusion_matrix")
     summary_results = {
         "final_mean_AUROC": mean(summary_auroc), "final_AUROC_std": stdev(summary_auroc),
         "final_mean_F1-score": mean(summary_f1), "final_F1-score_std": stdev(summary_f1),
