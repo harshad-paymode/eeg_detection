@@ -16,6 +16,7 @@ import wandb
 import logging
 logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
 logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
+logging.getLogger("lightning.pytorch.utilities.rank_zero").setLevel(logging.ERROR)
 
 
 api_key_file = open("/kaggle/working/eeg_detection/src/wandb_api_key.txt", "r")
@@ -80,12 +81,16 @@ def compute_prediction_metrics():
     else:
         target_names = None
 
-    # Dictionary to hold cross-fold metrics per target (patient or ID fold)
-    summary_metrics = {}
-    
-    for passes in range(10,101,10):
-        SAVE_DIR_METRICS = os.path.join(SAVE_DIR_METRICS, passes)
-        os.makedirs(SAVE_DIR_METRICS, exist_ok=True)
+ 
+    base_save_dir = SAVE_DIR_METRICS # Store the original path
+
+    for passes in range(10, 101, 10):
+        # Create a fresh dictionary for EACH pass amount
+        summary_metrics = {} 
+        
+        # Use a new local variable for the specific pass directory
+        current_save_dir = os.path.join(base_save_dir, f"passes_{passes}")
+        os.makedirs(current_save_dir, exist_ok=True)
         for n, fold in enumerate(fold_list):
             print(f"Evaluating Fold {n} | MC Dropout: {INITIAL_CONFIG['mc_dropout']}")
             
@@ -131,7 +136,7 @@ def compute_prediction_metrics():
                 deterministic=False, logger=wandb_logger, enable_model_summary=False,
             )
 
-            dir_fold = os.path.join(SAVE_DIR_METRICS, f"fold_{n}")
+            dir_fold = os.path.join(current_save_dir, f"fold_{n}")
             os.makedirs(dir_fold, exist_ok=True)
 
             # Evaluate Each Target (3 Patients for OOD, 1 Fold for ID)
@@ -227,8 +232,8 @@ def compute_prediction_metrics():
             wandb.finish()
             
             file_suffix = f"_{t_name}" if OOD_DATA else ""
-            np.save(os.path.join(SAVE_DIR_METRICS, f"summary_conf_matrix{file_suffix}.npy"), metrics["conf_matrix"])
-            with open(os.path.join(SAVE_DIR_METRICS, f"summary_results{file_suffix}.json"), "w") as f:
+            np.save(os.path.join(current_save_dir, f"summary_conf_matrix{file_suffix}.npy"), metrics["conf_matrix"])
+            with open(os.path.join(current_save_dir, f"summary_results{file_suffix}.json"), "w") as f:
                 json.dump(summary_results, f)
 
 if __name__ == "__main__":
