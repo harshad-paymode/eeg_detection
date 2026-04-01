@@ -63,7 +63,7 @@ def compute_prediction_metrics():
     else:
         project_name = "base_confusion_eval"
 
-    os.makedirs(SAVE_DIR_METRICS, exist_ok=True)
+    # os.makedirs(SAVE_DIR_METRICS, exist_ok=True)
     
     fold_list = [f for f in os.listdir(CHECKPOINT_DIR) if f.startswith("fold_")]
     fold_list.sort()
@@ -85,6 +85,7 @@ def compute_prediction_metrics():
     
     for passes in range(10,101,10):
         SAVE_DIR_METRICS = os.path.join(SAVE_DIR_METRICS, passes)
+        os.makedirs(SAVE_DIR_METRICS, exist_ok=True)
         for n, fold in enumerate(fold_list):
             print(f"Evaluating Fold {n} | MC Dropout: {INITIAL_CONFIG['mc_dropout']}")
             
