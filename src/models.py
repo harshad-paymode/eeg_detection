@@ -10,6 +10,7 @@ from torch_geometric.nn import (
 from torch_geometric.nn import GATv2Conv, Linear, Sequential
 from typing import List, Union, Tuple, Callable
 from torch_geometric.nn.norm import BatchNorm, LayerNorm
+from torch_geometric.nn import TransformerConv
 from torchmetrics import Specificity, Recall, AUROC, F1Score
 
 
@@ -74,21 +75,36 @@ class GATv2Lightning(pl.LightningModule):
             Union[Tuple[Callable, str], Callable]
         ] = []
         for i in range(n_gat_layers):
+            # feature_extractor_list.append(
+            #     (
+            #         GATv2Conv(
+            #             in_features if i == 0 else hidden_dim * n_heads,
+            #             hidden_dim,  # / (2**i) if i != 0 else hidden_dim,
+            #             heads=n_heads,
+            #             negative_slope=slope,
+            #             add_self_loops=True,
+            #             dropout = 0.1*dropout_on,
+            #             improved = True,
+            #             edge_dim=1,
+            #         ),
+            #         "x, edge_index, edge_attr -> x",
+            #     )
+            # )
             feature_extractor_list.append(
-                (
-                    GATv2Conv(
-                        in_features if i == 0 else hidden_dim * n_heads,
-                        hidden_dim,  # / (2**i) if i != 0 else hidden_dim,
-                        heads=n_heads,
-                        negative_slope=slope,
-                        add_self_loops=True,
-                        dropout = 0.1*dropout_on,
-                        improved = True,
-                        edge_dim=1,
-                    ),
-                    "x, edge_index, edge_attr -> x",
-                )
+            (
+                TransformerConv(
+                    in_channels=in_features if i == 0 else hidden_dim * n_heads,
+                    out_channels=hidden_dim,
+                    heads=n_heads,
+                    dropout=0.1 * dropout_on,
+                    edge_dim=1,       # Critical since you have edge attributes
+                    beta=True,        # ENABLE THIS: Adds a gating mechanism (improves deep GNNs)
+                    root_weight=True  # Replaces the need for add_self_loops
+                ),
+                "x, edge_index, edge_attr -> x",
             )
+        )
+            
             feature_extractor_list.append(norm_layer)
             feature_extractor_list.append(act_fn)
         self.feature_extractor = Sequential(
