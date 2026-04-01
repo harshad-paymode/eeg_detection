@@ -212,6 +212,7 @@ def compute_uncertainty_metrics():
                     if m.__class__.__name__.startswith('Dropout') or 'GAT' in m.__class__.__name__:
                         m.train()
                         m.eval = types.MethodType(lambda self: self.train(), m)
+                        print('Does it work? Yes it does')
 
             all_preds = []
             for p in range(50 if INITIAL_CONFIG['mc_dropout'] else 1):
