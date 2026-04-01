@@ -113,7 +113,7 @@ def compute_mutual_information(all_probs_list, total_entropy):
     Returns:
         Mutual information per sample, shape (N,)
     """
-    aleatoric = compute_aleatoric_entropy(all_probs_list)
+    aleatoric = compute_aleatoric_entropy(all_probs_list).to(total_entropy.device)
     epistemic = total_entropy - aleatoric
     return epistemic
 
