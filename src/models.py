@@ -96,19 +96,23 @@ class GATv2Lightning(pl.LightningModule):
                     in_channels=in_features if i == 0 else hidden_dim * n_heads,
                     out_channels=hidden_dim,
                     heads=n_heads,
-                    dropout=0.1 * dropout_on,
-                    edge_dim=1,       # Critical since you have edge attributes
-                    beta=True,        # ENABLE THIS: Adds a gating mechanism (improves deep GNNs)
-                    root_weight=True  # Replaces the need for add_self_loops
+                    dropout=0.1 * dropout_on,       
+                    beta=True,        
+                    root_weight=True 
                 ),
-                "x, edge_index, edge_attr -> x",
+                "x, edge_index -> x",
             )
         )
+
             
             feature_extractor_list.append(norm_layer)
             feature_extractor_list.append(act_fn)
+        # self.feature_extractor = Sequential(
+        #     "x, edge_index, edge_attr", feature_extractor_list
+        # )
+
         self.feature_extractor = Sequential(
-            "x, edge_index, edge_attr", feature_extractor_list
+            "x, edge_index", feature_extractor_list
         )
 
         self.classifier = nn.Sequential(
@@ -123,9 +127,6 @@ class GATv2Lightning(pl.LightningModule):
             Linear(128, 64, weight_initializer="kaiming_uniform"),
             nn.Dropout(0.1*dropout_on),
             act_fn,
-            # Linear(128, 128, weight_initializer="kaiming_uniform"),
-            # nn.Dropout(0.2*dropout_on),
-            # act_fn,
             Linear(
                 64,
                 classifier_out_neurons,
@@ -173,7 +174,8 @@ class GATv2Lightning(pl.LightningModule):
         self.test_step_gt: List[torch.Tensor] = []
 
     def forward(self, x, edge_index, pyg_batch, edge_attr=None):
-        h = self.feature_extractor(x, edge_index=edge_index, edge_attr=None)
+        # h = self.feature_extractor(x, edge_index=edge_index, edge_attr=None)
+        h = self.feature_extractor(x, edge_index=edge_index)
         h = self.pooling_method(h, pyg_batch)
         h = self.classifier(h)
         return h / self.temperature
