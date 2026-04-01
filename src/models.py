@@ -75,44 +75,27 @@ class GATv2Lightning(pl.LightningModule):
             Union[Tuple[Callable, str], Callable]
         ] = []
         for i in range(n_gat_layers):
-            # feature_extractor_list.append(
-            #     (
-            #         GATv2Conv(
-            #             in_features if i == 0 else hidden_dim * n_heads,
-            #             hidden_dim,  # / (2**i) if i != 0 else hidden_dim,
-            #             heads=n_heads,
-            #             negative_slope=slope,
-            #             add_self_loops=True,
-            #             dropout = 0.1*dropout_on,
-            #             improved = True,
-            #             edge_dim=1,
-            #         ),
-            #         "x, edge_index, edge_attr -> x",
-            #     )
-            # )
             feature_extractor_list.append(
-            (
-                TransformerConv(
-                    in_channels=in_features if i == 0 else hidden_dim * n_heads,
-                    out_channels=hidden_dim,
-                    heads=n_heads,
-                    dropout=0.1 * dropout_on,       
-                    beta=True,        
-                    root_weight=True 
-                ),
-                "x, edge_index -> x",
+                (
+                    GATv2Conv(
+                        in_features if i == 0 else hidden_dim * n_heads,
+                        hidden_dim,  # / (2**i) if i != 0 else hidden_dim,
+                        heads=n_heads,
+                        negative_slope=slope,
+                        add_self_loops=True,
+                        dropout = 0.1*dropout_on,
+                        improved = True,
+                        edge_dim=1,
+                    ),
+                    "x, edge_index, edge_attr -> x",
+                )
             )
-        )
 
             
             feature_extractor_list.append(norm_layer)
             feature_extractor_list.append(act_fn)
-        # self.feature_extractor = Sequential(
-        #     "x, edge_index, edge_attr", feature_extractor_list
-        # )
-
         self.feature_extractor = Sequential(
-            "x, edge_index", feature_extractor_list
+            "x, edge_index, edge_attr", feature_extractor_list
         )
 
         self.classifier = nn.Sequential(
@@ -124,11 +107,11 @@ class GATv2Lightning(pl.LightningModule):
             Linear(256, 128, weight_initializer="kaiming_uniform"),
             nn.Dropout(0.2*dropout_on),
             act_fn,
-            Linear(128, 64, weight_initializer="kaiming_uniform"),
+            Linear(128, 32, weight_initializer="kaiming_uniform"),
             nn.Dropout(0.1*dropout_on),
             act_fn,
             Linear(
-                64,
+                32,
                 classifier_out_neurons,
                 weight_initializer="kaiming_uniform",
             ),
@@ -174,8 +157,7 @@ class GATv2Lightning(pl.LightningModule):
         self.test_step_gt: List[torch.Tensor] = []
 
     def forward(self, x, edge_index, pyg_batch, edge_attr=None):
-        # h = self.feature_extractor(x, edge_index=edge_index, edge_attr=None)
-        h = self.feature_extractor(x, edge_index=edge_index)
+        h = self.feature_extractor(x, edge_index=edge_index, edge_attr=None)
         h = self.pooling_method(h, pyg_batch)
         h = self.classifier(h)
         return h / self.temperature
