@@ -150,7 +150,7 @@ def compute_prediction_metrics():
                         m.eval = types.MethodType(lambda self: self.train(), m)
 
             all_preds = []
-            for p in range(30 if INITIAL_CONFIG['mc_dropout'] else 1):
+            for p in range(50 if INITIAL_CONFIG['mc_dropout'] else 1):
                 preds = trainer.predict(model, loader)
                 preds = torch.cat(preds, dim=0)
                 if INITIAL_CONFIG['mc_dropout']:
