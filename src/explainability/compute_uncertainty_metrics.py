@@ -11,6 +11,9 @@ from torchmetrics.classification import MulticlassCalibrationError
 from argparse import ArgumentParser
 from statistics import mean, stdev
 import wandb
+import logging
+logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
+logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 
 api_key_file = open("/kaggle/working/eeg_detection/src/wandb_api_key.txt", "r")
 API_KEY = api_key_file.read()
