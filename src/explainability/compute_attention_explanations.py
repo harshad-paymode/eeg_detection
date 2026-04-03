@@ -22,20 +22,6 @@ from argparse import ArgumentParser
 torch_geometric.seed_everything(42)
 
 
-def get_save_dir_with_mode(base_save_dir, mc_dropout, ood_data):
-    """
-    Determine save directory based on MC dropout and OOD flags.
-    Mirrors the naming convention of compute_uncertainty_metrics.py
-    """
-    suffix = ""
-    if mc_dropout:
-        suffix += "_mc"
-    if ood_data:
-        suffix += "_ood"
-    
-    return base_save_dir + suffix
-
-
 def compute_attention_explanations(args):
     checkpoint_dir = args.checkpoint_dir
     data_dir = args.data_dir
@@ -44,7 +30,7 @@ def compute_attention_explanations(args):
     ood_data = args.ood_data
     
     # Determine final save directory
-    save_dir_att = get_save_dir_with_mode(save_dir_att_base, mc_dropout, ood_data)
+    save_dir_att = save_dir_att_base
 
     if os.path.exists(save_dir_att):
         print("Save directory already exists")
