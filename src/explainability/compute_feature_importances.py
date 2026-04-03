@@ -321,7 +321,7 @@ def compute_feature_importances(args):
                     
                     sample_counter += 1
                     if sample_counter % 100 == 0:
-                        print(f"  MC Sample {sample_counter}{len(loader)} done")
+                        print(f"  MC Sample {sample_counter}/{len(loader)} done")
                 
                 print(f"  MC processing complete: {sample_counter} samples for {t_name}")
         
