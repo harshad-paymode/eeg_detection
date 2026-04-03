@@ -258,13 +258,13 @@ def compute_feature_importances(args):
                         
                         # Aggregate node importance: mean across features -> [N]
                         node_importance = node_masks.mean(dim=1) if node_masks.dim() > 1 else node_masks
-                        all_node_masks.append(node_importance.cpu())
+                        all_node_masks.append(node_importance)
                         
                         pred_label = torch.argmax(explanation.prediction).item()
                         pred_labels.append(pred_label)
                     
                     # Stack: [T, N] and [T, E]
-                    all_node_masks = torch.stack(all_node_masks, dim=0)  # [T, N]
+                    all_node_masks = torch.stack(all_node_masks, dim=0).cpu()  # [T, N]
                     
                     # Majority vote for prediction
                     pred_label_mode = torch.mode(torch.tensor(pred_labels))[0].item()
