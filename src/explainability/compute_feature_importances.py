@@ -15,19 +15,6 @@ import types
 seed_everything(42)
 
 
-def get_save_dir_with_mode(base_save_dir, mc_dropout, ood_data):
-    """
-    Determine save directory based on MC dropout and OOD flags.
-    Mirrors the naming convention of compute_uncertainty_metrics.py
-    """
-    suffix = ""
-    if mc_dropout:
-        suffix += "_mc"
-    if ood_data:
-        suffix += "_ood"
-    
-    return base_save_dir + suffix
-
 
 def compute_feature_importances(args):
     checkpoint_dir = args.checkpoint_dir
@@ -39,7 +26,7 @@ def compute_feature_importances(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Determine final save directory
-    save_dir_importances = get_save_dir_with_mode(save_dir_importances_base, mc_dropout, ood_data)
+    save_dir_importances = save_dir_importances_base
     
     if os.path.exists(save_dir_importances):
         print("Save directory already exists")
@@ -125,7 +112,7 @@ def compute_feature_importances(args):
                 shuffle=False,
                 drop_last=False,
                 num_workers=2 if not mc_dropout else 0,
-                prefetch_factor=20 if not mc_dropout else 0,
+                prefetch_factor=20 if not mc_dropout else None,
             )
             
             gnn_explainer = GNNExplainer(epochs=50, lr=0.01)
