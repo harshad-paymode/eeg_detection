@@ -28,10 +28,6 @@ def compute_feature_importances(args):
     # Determine final save directory
     save_dir_importances = save_dir_importances_base
     
-    if os.path.exists(save_dir_importances):
-        print("Save directory already exists")
-        print(save_dir_importances)
-        return
     os.makedirs(save_dir_importances,exist_ok=True)
     
     fold_list = os.listdir(checkpoint_dir)

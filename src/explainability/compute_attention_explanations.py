@@ -32,10 +32,6 @@ def compute_attention_explanations(args):
     # Determine final save directory
     save_dir_att = save_dir_att_base
 
-    if os.path.exists(save_dir_att):
-        print("Save directory already exists")
-        print(save_dir_att)
-        return
     os.makedirs(save_dir_att,exist_ok=True)
     
     fold_list = os.listdir(checkpoint_dir)
@@ -247,8 +243,8 @@ def compute_attention_explanations(args):
                         m.eval = types.MethodType(lambda self: self.train(), m)
                 
                 save_path_fold = os.path.join(save_dir_att, f"fold_{i}")
-                if not os.path.exists(save_path_fold):
-                    os.makedirs(save_path_fold,exist_ok=True)
+               
+                os.makedirs(save_path_fold,exist_ok=True)
                 
                 sample_counter = 0
                 
