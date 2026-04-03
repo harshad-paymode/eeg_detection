@@ -180,7 +180,7 @@ def compute_feature_importances(args):
                     
                     batch_count += 1
                     if batch_count % 100 == 0:
-                        print(f"  Batch {batch_count} done")
+                        print(f"  Batch {batch_count}/{len(loader)} done")
                 
                 # Average across dataset
                 sum_masks /= batch_count
@@ -321,7 +321,7 @@ def compute_feature_importances(args):
                     
                     sample_counter += 1
                     if sample_counter % 100 == 0:
-                        print(f"  MC Sample {sample_counter} done")
+                        print(f"  MC Sample {sample_counter}{len(loader)} done")
                 
                 print(f"  MC processing complete: {sample_counter} samples for {t_name}")
         
