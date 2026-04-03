@@ -18,8 +18,8 @@ from statistics import mean, stdev
 from torch_geometric.explain import AttentionExplainer, Explainer, ModelConfig
 import types
 from argparse import ArgumentParser
-
-torch_geometric.seed_everything(42)
+from torch_geometric import seed_everything
+seed_everything(42)
 
 
 def compute_attention_explanations(args):
@@ -72,18 +72,6 @@ def compute_attention_explanations(args):
             checkpoint_fold_list[i], os.listdir(checkpoint_fold_list[i])[0]
         )
         
-        # Model hyperparameters
-        n_gat_layers = 1
-        hidden_dim = 32
-        dropout = 0.0
-        slope = 0.0025
-        pooling_method = "mean"
-        norm_method = "batch"
-        activation = "leaky_relu"
-        n_heads = 9
-        lr = 0.0012
-        weight_decay = 0.0078
-        
         # Determine test targets for this fold
         if ood_data:
             current_targets = target_names
@@ -102,16 +90,16 @@ def compute_attention_explanations(args):
             checkpoint_path,
             in_features=features_shape,
             n_classes=n_classes,
-            n_gat_layers=n_gat_layers,
-            hidden_dim=hidden_dim,
-            n_heads=n_heads,
-            slope=slope,
-            dropout=dropout,
-            pooling_method=pooling_method,
-            activation=activation,
-            norm_method=norm_method,
-            lr=lr,
-            weight_decay=weight_decay,
+            n_gat_layers=1,
+            hidden_dim=32,
+            n_heads=9,
+            slope=0.0025,
+            dropout=mc_dropout,
+            pooling_method="mean",
+            activation="leaky_relu",
+            norm_method="batch",
+            lr=0.0012,
+            weight_decay=0.0078,
             map_location=device,
         )
         model = model.to(device)
@@ -257,99 +245,69 @@ def compute_attention_explanations(args):
             # ================================================================
             # MC DROPOUT MODE: Instance-Level Stochastic Explanations
             # ================================================================
-            else:
-                # Enable MC Dropout
-                for m in model.modules():
-                    if m.__class__.__name__.startswith('Dropout') or 'GAT' in m.__class__.__name__:
-                        m.train()
-                        m.eval = types.MethodType(lambda self: self.train(), m)
-                
+   
+            else:        
                 save_path_fold = os.path.join(save_dir_att, f"fold_{i}")
                 os.makedirs(save_path_fold, exist_ok=True)
                 
                 sample_counter = 0
-                
                 for batch_idx, batch in enumerate(loader):
-                    # Stop after batches_limit (inf for OOD, max_batches for ID)
-                    if sample_counter >= batches_limit:
-                        break
-                    
+                    if sample_counter >= batches_limit: break
                     batch = batch.to(device)
-                    true_label = batch.y.item()
                     
-                    # RUN EXPLAINER ONCE (outside the MC pass loop)
+                    # 1. Run Explainer EXACTLY ONCE
+                    model.eval()
                     explanation = explainer(
-                        x=batch.x,
-                        edge_index=batch.edge_index,
-                        target=batch.y,
-                        pyg_batch=batch.batch,
+                        x=batch.x, edge_index=batch.edge_index, 
+                        target=batch.y, pyg_batch=batch.batch
                     )
+                    edge_mask_base = explanation.edge_mask.detach().cpu().numpy()
+                    edge_index = explanation.edge_index.detach().cpu().numpy()
                     
-                    edge_masks_base = explanation.edge_mask.detach().cpu()  # [E]
+                    # 2. Run Model 50 times for Predictive Uncertainty
+                    model.train()
+                    for m in model.modules():
+                        if isinstance(m, torch.nn.BatchNorm1d) or isinstance(m, torch_geometric.nn.norm.BatchNorm):
+                            m.eval()
                     
-                    # Collect gradient-based variation from T=50 MC passes
-                    all_edge_masks = []
-                    pred_labels = []
+                    all_preds = []
+                    with torch.no_grad():
+                        for t in range(50):
+                            out = model(batch.x, batch.edge_index, batch.batch)
+                            preds = torch.nn.functional.softmax(out, dim=1)
+                            all_preds.append(preds.detach().cpu())
                     
-                    for t in range(50):
-                        # Forward pass with MC Dropout enabled
-                        x = batch.x.clone().detach().requires_grad_(True)
-                        out = model(x, batch.edge_index, batch.batch)
-                        
-                        # Get target class (predicted class)
-                        target_class = out.argmax(dim=1)
-                        
-                        # Compute gradients
-                        loss = out[torch.arange(out.size(0)), target_class].sum()
-                        loss.backward()
-                        
-                        # Per-edge importance: mean absolute gradient across features
-                        edge_importance = torch.abs(x.grad).mean(dim=1)  # [N]
-                        all_edge_masks.append(edge_importance.detach().cpu())
-                        
-                        pred_label = target_class.item()
-                        pred_labels.append(pred_label)
+                    all_preds = torch.stack(all_preds, dim=0).squeeze(1) # Shape: [50, 3]
+                    mean_probs = all_preds.mean(dim=0)
+                    pred_label_mode = mean_probs.argmax(dim=0).item()
                     
-                    # Stack: [T, E]
-                    all_edge_masks = torch.stack(all_edge_masks, dim=0)  # [T, E]
+                    # 3. Calculate Entropies
+                    predictive_entropy = -torch.sum(mean_probs * torch.log(mean_probs + 1e-10)).item()
+                    entropies = -torch.sum(all_preds * torch.log(all_preds + 1e-10), dim=1)
+                    aleatoric_entropy = entropies.mean().item()
+                    epistemic_entropy = predictive_entropy - aleatoric_entropy
                     
-                    # Majority vote for prediction
-                    pred_label_mode = max(set(pred_labels), key=pred_labels.count)
-                    
-                    # Compute mean and std of gradient masks
-                    gradient_mask_mean = all_edge_masks.mean(dim=0)  # [E]
-                    gradient_mask_std = all_edge_masks.std(dim=0)    # [E]
-                    
-                    # Combine: Base explanation (AttentionExplainer) + Gradient variation (MC Dropout)
-                    edge_mask_mean = 0.7 * edge_masks_base + 0.3 * gradient_mask_mean
-                    edge_mask_std = gradient_mask_std  # Uncertainty from MC Dropout
-                    
-                    # Create sample ID matching compute_uncertainty_metrics.py
-                    sample_id = f"{fold}_{t_name}_{batch_idx}"
-                    
-                    # Save instance-level data
+                    # 4. Save
                     sample_data = {
-                        "sample_id": sample_id,
-                        "true_label": true_label,
+                        "sample_id": f"{fold}_{t_name}_{batch_idx}",
+                        "true_label": batch.y.item(),
                         "pred_label_mode": pred_label_mode,
-                        "edge_mask_mean": edge_mask_mean.numpy(),
-                        "edge_mask_std": edge_mask_std.numpy(),
-                        "edge_mask_all": all_edge_masks.numpy(),
-                        "attention_mask": edge_masks_base.numpy(),  # Base mask for reference
+                        "edge_mask_base": edge_mask_base,
+                        "edge_index": edge_index,
+                        "mean_probs": mean_probs.numpy(),
+                        "predictive_entropy": predictive_entropy,
+                        "aleatoric_entropy": aleatoric_entropy,
+                        "epistemic_entropy": epistemic_entropy
                     }
                     
                     file_prefix = f"{t_name}_" if ood_data else ""
-                    save_path = os.path.join(
-                        save_path_fold,
-                        f"sample_{file_prefix}{batch_idx}.pt"
-                    )
-                    torch.save(sample_data, save_path)
+                    torch.save(sample_data, os.path.join(save_path_fold, f"sample_{file_prefix}{batch_idx}.pt"))
                     
                     sample_counter += 1
                     if sample_counter % 100 == 0:
-                        print(f"  MC Sample {sample_counter} done")
+                        print(f"MC Sample {sample_counter}/{len(loader)} done")
                 
-                print(f"  MC processing complete: {sample_counter} samples for {t_name}")
+                print(f"MC processing complete: {sample_counter} samples for {t_name}")
         
         print(f"Fold {fold} complete\n")
 

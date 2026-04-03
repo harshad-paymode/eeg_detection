@@ -5,6 +5,7 @@ from src.models import GATv2Lightning
 from src.utils.dataloader_utils import GraphDataset
 import lightning.pytorch as pl
 import os
+import torch_geometric
 import json
 import types
 from torchmetrics.classification import MulticlassConfusionMatrix
@@ -14,6 +15,9 @@ from argparse import ArgumentParser
 from statistics import mean, stdev
 import wandb
 import logging
+from torch_geometric import seed_everything
+seed_everything(42)
+
 logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
 logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 
@@ -144,10 +148,10 @@ def compute_prediction_metrics():
             loader = DataLoader(dataset, batch_size=1024, shuffle=False)
 
             if INITIAL_CONFIG['mc_dropout']:
+                model.train()
                 for m in model.modules():
-                    if m.__class__.__name__.startswith('Dropout') or 'GAT' in m.__class__.__name__:
-                        m.train()
-                        m.eval = types.MethodType(lambda self: self.train(), m)
+                    if isinstance(m, torch.nn.BatchNorm1d) or isinstance(m, torch_geometric.nn.norm.BatchNorm):
+                        m.eval()
 
             all_preds = []
             for p in range(50 if INITIAL_CONFIG['mc_dropout'] else 1):
