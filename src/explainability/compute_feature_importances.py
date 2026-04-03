@@ -32,7 +32,7 @@ def compute_feature_importances(args):
         print("Save directory already exists")
         print(save_dir_importances)
         return
-    os.makedirs(save_dir_importances)
+    os.makedirs(save_dir_importances,exist_ok=True)
     
     fold_list = os.listdir(checkpoint_dir)
     checkpoint_fold_list = [
@@ -185,7 +185,7 @@ def compute_feature_importances(args):
                 # Save baseline results
                 save_path_fold = os.path.join(save_dir_importances, f"fold_{i}")
                 if not os.path.exists(save_path_fold):
-                    os.makedirs(save_path_fold)
+                    os.makedirs(save_path_fold,exist_ok=True)
                 
                 file_prefix = f"{t_name}_" if ood_data else ""
                 
@@ -220,7 +220,7 @@ def compute_feature_importances(args):
                 
                 save_path_fold = os.path.join(save_dir_importances, f"fold_{i}")
                 if not os.path.exists(save_path_fold):
-                    os.makedirs(save_path_fold)
+                    os.makedirs(save_path_fold,exist_ok=True)
                 
                 sample_counter = 0
                 
