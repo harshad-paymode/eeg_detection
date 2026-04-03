@@ -2,7 +2,7 @@ import torch
 from torch_geometric.loader import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
-from models import GATv2Lightning
+from src.models import GATv2Lightning
 from src.utils.dataloader_utils import GraphDataset
 import lightning.pytorch as pl
 import os

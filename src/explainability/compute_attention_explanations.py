@@ -3,7 +3,7 @@ import torch_geometric
 from torch_geometric.loader import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
-from models import GATv2Lightning
+from src.models import GATv2Lightning
 from src.utils.dataloader_utils import GraphDataset
 from torch_geometric.nn import Sequential
 from sklearn.utils.class_weight import compute_class_weight
