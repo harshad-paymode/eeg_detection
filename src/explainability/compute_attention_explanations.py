@@ -1,34 +1,38 @@
 import torch
+import torch_geometric
 from torch_geometric.loader import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
 from src.models import GATv2Lightning
 from src.utils.dataloader_utils import GraphDataset
+from torch_geometric.nn import Sequential
+from sklearn.utils.class_weight import compute_class_weight
 import lightning.pytorch as pl
 import os
 import json
-from torch_geometric import seed_everything
-from argparse import ArgumentParser
-from torch_geometric.explain import GNNExplainer, Explainer, ModelConfig
+import networkx as nx
+from torchmetrics.classification import MulticlassConfusionMatrix
+from sklearn.metrics import balanced_accuracy_score
+import matplotlib as mpl
+from statistics import mean, stdev
+from torch_geometric.explain import AttentionExplainer, Explainer, ModelConfig
 import types
+from argparse import ArgumentParser
 
-seed_everything(42)
+torch_geometric.seed_everything(42)
 
 
-def compute_feature_importances(args):
+def compute_attention_explanations(args):
     checkpoint_dir = args.checkpoint_dir
     data_dir = args.data_dir
-    save_dir_importances_base = args.save_dir_importances
+    save_dir_att_base = args.save_dir_att
     mc_dropout = args.mc_dropout
     ood_data = args.ood_data
-    max_batches = args.max_batches
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Determine final save directory
-    save_dir_importances = save_dir_importances_base
-    
-    os.makedirs(save_dir_importances, exist_ok=True)
+    save_dir_att = save_dir_att_base
+
+    os.makedirs(save_dir_att,exist_ok=True)
     
     fold_list = os.listdir(checkpoint_dir)
     checkpoint_fold_list = [
@@ -37,13 +41,8 @@ def compute_feature_importances(args):
     fold_list.sort()
     checkpoint_fold_list.sort()
     
-    # HARDCODED: For OOD data, only process fold_0 and fold_1
-    if ood_data:
-        fold_list = [f for f in fold_list if f in ['fold_0', 'fold_1']]
-        checkpoint_fold_list = [
-            os.path.join(checkpoint_dir, fold) for fold in fold_list
-        ]
-        print(f"\n[OOD MODE] Processing only folds: {fold_list}")
+    att_explainer = AttentionExplainer()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Determine targets (OOD vs ID)
     if ood_data:
@@ -53,11 +52,7 @@ def compute_feature_importances(args):
     
     for i, fold in enumerate(fold_list):
         print(f"\n{'='*60}")
-        print(f"Fold {fold} (Index {i}) | MC Dropout: {mc_dropout} | OOD: {ood_data}")
-        if not ood_data:
-            print(f"Max Batches: {max_batches}")
-        else:
-            print(f"Max Batches: ALL (OOD - patient-specific data)")
+        print(f"Fold {i} | MC Dropout: {mc_dropout} | OOD: {ood_data}")
         print(f"{'='*60}")
         
         checkpoint_path = os.path.join(
@@ -89,7 +84,7 @@ def compute_feature_importances(args):
         # Load model once per fold
         features_shape = GraphDataset(current_dirs[0])[0].x.shape[-1]
         n_classes = 3
-        
+
         model = GATv2Lightning.load_from_checkpoint(
             checkpoint_path,
             in_features=features_shape,
@@ -123,19 +118,14 @@ def compute_feature_importances(args):
                 prefetch_factor=20 if not mc_dropout else None,
             )
             
-            # HARDCODED: For OOD, process all batches; for ID, limit to max_batches
-            batches_limit = float('inf') if ood_data else max_batches
-            
-            gnn_explainer = GNNExplainer(epochs=50, lr=0.01)
             config = ModelConfig(
                 "multiclass_classification", task_level="graph", return_type="raw"
             )
             explainer = Explainer(
                 model,
-                algorithm=gnn_explainer,
+                algorithm=att_explainer,
                 explanation_type="model",
                 model_config=config,
-                node_mask_type="attributes",
                 edge_mask_type="object",
             )
             
@@ -143,87 +133,104 @@ def compute_feature_importances(args):
             # BASELINE MODE: Global Averaging
             # ================================================================
             if not mc_dropout:
-                sum_masks = torch.zeros((18, 10)).to(device)
-                interictal_masks = torch.zeros((18, 10)).to(device)
-                ictal_masks = torch.zeros((18, 10)).to(device)
-                preictal_masks = torch.zeros((18, 10)).to(device)
+                edge_connection_dict_all = {}
+                edge_connection_dict_preictal = {}
+                edge_connection_dict_interictal = {}
+                edge_connection_dict_ictal = {}
                 interictal_cntr = 0
                 preictal_cntr = 0
                 ictal_cntr = 0
                 
-                batch_count = 0
                 for n, batch in enumerate(loader):
-                    # Stop after batches_limit (inf for OOD, max_batches for ID)
-                    if batch_count >= batches_limit:
-                        break
-                    
-                    batch_unpacked = batch.to(device)
+                    batch = batch.to(device)
                     explanation = explainer(
-                        x=batch_unpacked.x,
-                        edge_index=batch_unpacked.edge_index,
-                        target=batch_unpacked.y,
-                        pyg_batch=batch_unpacked.batch,
+                        x=batch.x,
+                        edge_index=batch.edge_index,
+                        target=batch.y,
+                        pyg_batch=batch.batch,
                     )
-                    prediction = torch.argmax(explanation.prediction)
                     
-                    sum_masks += explanation.node_mask
+                    for edge_idx in range(explanation.edge_index.size(1)):
+                        edge = explanation.edge_index[:, edge_idx].tolist()
+                        edge.sort()
+                        edge = str(tuple(edge))
+                        edge_mask = explanation.edge_mask[edge_idx].item()
+                        prediction = torch.argmax(explanation.prediction)
+                        
+                        if edge in edge_connection_dict_all.keys():
+                            edge_connection_dict_all[edge] += edge_mask
+                        else:
+                            edge_connection_dict_all[edge] = edge_mask
+                        
+                        if batch.y == 0 and prediction == 0:
+                            if edge in edge_connection_dict_preictal.keys():
+                                edge_connection_dict_preictal[edge] += edge_mask
+                            else:
+                                edge_connection_dict_preictal[edge] = edge_mask
+                        elif batch.y == 1 and prediction == 1:
+                            if edge in edge_connection_dict_ictal.keys():
+                                edge_connection_dict_ictal[edge] += edge_mask
+                            else:
+                                edge_connection_dict_ictal[edge] = edge_mask
+                        elif batch.y == 2 and prediction == 2:
+                            if edge in edge_connection_dict_interictal.keys():
+                                edge_connection_dict_interictal[edge] += edge_mask
+                            else:
+                                edge_connection_dict_interictal[edge] = edge_mask
                     
-                    if batch_unpacked.y == 0 and prediction == 0:
-                        preictal_masks += explanation.node_mask
+                    if batch.y == 0 and prediction == 0:
                         preictal_cntr += 1
-                    elif batch_unpacked.y == 1 and prediction == 1:
-                        ictal_masks += explanation.node_mask
+                    elif batch.y == 1 and prediction == 1:
                         ictal_cntr += 1
-                    elif batch_unpacked.y == 2 and prediction == 2:
-                        interictal_masks += explanation.node_mask
+                    elif batch.y == 2 and prediction == 2:
                         interictal_cntr += 1
                     
-                    batch_count += 1
-                    if batch_count % 100 == 0:
-                        print(f"  Batch {batch_count} done")
+                    if n % 100 == 0:
+                        print(f"  Batch {n}/{len(loader)} done")
                 
                 # Average across dataset
-                sum_masks /= batch_count
-                interictal_masks /= max(interictal_cntr, 1)
-                ictal_masks /= max(ictal_cntr, 1)
-                preictal_masks /= max(preictal_cntr, 1)
-                
-                # Create final explanation objects
-                final_explanation_sum = explanation.clone()
-                final_explanation_interictal = explanation.clone()
-                final_explanation_preictal = explanation.clone()
-                final_explanation_ictal = explanation.clone()
-                
-                final_explanation_sum.node_mask = sum_masks
-                final_explanation_interictal.node_mask = interictal_masks
-                final_explanation_preictal.node_mask = preictal_masks
-                final_explanation_ictal.node_mask = ictal_masks
+                edge_connection_dict_all = {
+                    key: value / (n + 1)
+                    for key, value in edge_connection_dict_all.items()
+                }
+                edge_connection_dict_interictal = {
+                    key: value / max(interictal_cntr, 1)
+                    for key, value in edge_connection_dict_interictal.items()
+                }
+                edge_connection_dict_ictal = {
+                    key: value / max(ictal_cntr, 1)
+                    for key, value in edge_connection_dict_ictal.items()
+                }
+                edge_connection_dict_preictal = {
+                    key: value / max(preictal_cntr, 1)
+                    for key, value in edge_connection_dict_preictal.items()
+                }
                 
                 # Save baseline results
-                save_path_fold = os.path.join(save_dir_importances, f"fold_{i}")
-              
-                os.makedirs(save_path_fold, exist_ok=True)
+                save_path_fold = os.path.join(save_dir_att, f"fold_{i}")
+                if not os.path.exists(save_path_fold):
+                    os.makedirs(save_path_fold,exist_ok=True)
                 
                 file_prefix = f"{t_name}_" if ood_data else ""
                 
-                torch.save(
-                    final_explanation_sum,
-                    os.path.join(save_path_fold, f"{file_prefix}final_explanation_sum.pt"),
-                )
-                torch.save(
-                    final_explanation_interictal,
-                    os.path.join(save_path_fold, f"{file_prefix}final_explanation_interictal.pt"),
-                )
-                torch.save(
-                    final_explanation_preictal,
-                    os.path.join(save_path_fold, f"{file_prefix}final_explanation_preictal.pt"),
-                )
-                torch.save(
-                    final_explanation_ictal,
-                    os.path.join(save_path_fold, f"{file_prefix}final_explanation_ictal.pt"),
-                )
+                with open(
+                    os.path.join(save_path_fold, f"{file_prefix}edge_connection_dict_all.json"), "w"
+                ) as f:
+                    json.dump(edge_connection_dict_all, f)
+                with open(
+                    os.path.join(save_path_fold, f"{file_prefix}edge_connection_dict_interictal.json"), "w"
+                ) as f:
+                    json.dump(edge_connection_dict_interictal, f)
+                with open(
+                    os.path.join(save_path_fold, f"{file_prefix}edge_connection_dict_ictal.json"), "w"
+                ) as f:
+                    json.dump(edge_connection_dict_ictal, f)
+                with open(
+                    os.path.join(save_path_fold, f"{file_prefix}edge_connection_dict_preictal.json"), "w"
+                ) as f:
+                    json.dump(edge_connection_dict_preictal, f)
                 
-                print(f"  Baseline processing complete for {t_name} ({batch_count} batches)")
+                print(f"  Baseline processing complete for {t_name}")
             
             # ================================================================
             # MC DROPOUT MODE: Instance-Level Stochastic Explanations
@@ -235,68 +242,44 @@ def compute_feature_importances(args):
                         m.train()
                         m.eval = types.MethodType(lambda self: self.train(), m)
                 
-                save_path_fold = os.path.join(save_dir_importances, f"fold_{i}")
-                
-                os.makedirs(save_path_fold, exist_ok=True)
+                save_path_fold = os.path.join(save_dir_att, f"fold_{i}")
+               
+                os.makedirs(save_path_fold,exist_ok=True)
                 
                 sample_counter = 0
                 
                 for batch_idx, batch in enumerate(loader):
-                    # Stop after batches_limit (inf for OOD, max_batches for ID)
-                    if sample_counter >= batches_limit:
-                        break
-                    
                     batch = batch.to(device)
                     true_label = batch.y.item()
-                    num_nodes = batch.x.size(0)
                     
-                    # RUN EXPLAINER ONCE (outside the MC pass loop)
-                    explanation = explainer(
-                        x=batch.x,
-                        edge_index=batch.edge_index,
-                        target=batch.y,
-                        pyg_batch=batch.batch,
-                    )
-                    
-                    node_masks = explanation.node_mask  # Shape: [N, F]
-                    node_importance_base = node_masks.mean(dim=1) if node_masks.dim() > 1 else node_masks
-                    
-                    # Collect gradient-based variation from T=50 MC passes
-                    all_node_masks = []
+                    # Collect explanations from T=50 MC passes
+                    all_edge_masks = []
                     pred_labels = []
                     
                     for t in range(50):
-                        # Forward pass with MC Dropout enabled
-                        x = batch.x.clone().detach().requires_grad_(True)
-                        out = model(x, batch.edge_index, batch.batch)
+                        explanation = explainer(
+                            x=batch.x,
+                            edge_index=batch.edge_index,
+                            target=batch.y,
+                            pyg_batch=batch.batch,
+                        )
                         
-                        # Get target class (predicted class)
-                        target_class = out.argmax(dim=1)
+                        edge_masks = explanation.edge_mask  # Shape: [E]
+                        all_edge_masks.append(edge_masks.cpu())
                         
-                        # Compute gradients
-                        loss = out[torch.arange(out.size(0)), target_class].sum()
-                        loss.backward()
-                        
-                        # Per-node importance: mean absolute gradient across features
-                        node_importance = torch.abs(x.grad).mean(dim=1)  # [N]
-                        all_node_masks.append(node_importance.detach().cpu())
-                        
-                        pred_label = target_class.item()
+                        pred_label = torch.argmax(explanation.prediction).item()
                         pred_labels.append(pred_label)
                     
-                    # Stack: [T, N]
-                    all_node_masks = torch.stack(all_node_masks, dim=0)  # [T, N]
+                    # Stack: [T, E]
+                    all_edge_masks = torch.stack(all_edge_masks, dim=0)  # [T, E]
                     
                     # Majority vote for prediction
-                    pred_label_mode = max(set(pred_labels), key=pred_labels.count)
+                    pred_label_mode = torch.mode(torch.tensor(pred_labels))[0].item()
                     
-                    # Compute mean and std of gradient masks
-                    gradient_mask_mean = all_node_masks.mean(dim=0)  # [N]
-                    gradient_mask_std = all_node_masks.std(dim=0)    # [N]
+                    # Compute mean and std
+                    edge_mask_mean = all_edge_masks.mean(dim=0)  # [E]
+                    edge_mask_std = all_edge_masks.std(dim=0)    # [E]
                     
-                    # Combine: Base explanation (GNNExplainer) + Gradient variation (MC Dropout)
-                    node_mask_mean = 0.7 * node_importance_base.cpu() + 0.3 * gradient_mask_mean
-                    node_mask_std = gradient_mask_std  # Uncertainty from MC Dropout
                     
                     # Create sample ID matching compute_uncertainty_metrics.py
                     sample_id = f"{fold}_{t_name}_{batch_idx}"
@@ -306,10 +289,9 @@ def compute_feature_importances(args):
                         "sample_id": sample_id,
                         "true_label": true_label,
                         "pred_label_mode": pred_label_mode,
-                        "node_mask_mean": node_mask_mean.numpy(),
-                        "node_mask_std": node_mask_std.numpy(),
-                        "node_mask_all": all_node_masks.numpy(),
-                        "gnnexplainer_mask": node_importance_base.detach().cpu().numpy(),
+                        "edge_mask_mean": edge_mask_mean.numpy(),
+                        "edge_mask_std": edge_mask_std.numpy(),
+                        "edge_mask_all": all_edge_masks.numpy(),
                     }
                     
                     file_prefix = f"{t_name}_" if ood_data else ""
@@ -319,13 +301,14 @@ def compute_feature_importances(args):
                     )
                     torch.save(sample_data, save_path)
                     
+                    if batch_idx % 100 == 0:
+                        print(f"  MC Sample {batch_idx}/{len(loader)} done")
+                    
                     sample_counter += 1
-                    if sample_counter % 100 == 0:
-                        print(f"  MC Sample {sample_counter} done")
                 
                 print(f"  MC processing complete: {sample_counter} samples for {t_name}")
         
-        print(f"Fold {fold} complete\n")
+        print(f"Fold {i} complete\n")
 
 
 if __name__ == "__main__":
@@ -343,10 +326,10 @@ if __name__ == "__main__":
         help="Directory containing data"
     )
     parser.add_argument(
-        "--save_dir_importances",
+        "--save_dir_att",
         type=str,
         required=True,
-        help="Base directory to save feature importances"
+        help="Base directory to save attention explanations"
     )
     parser.add_argument(
         "--mc_dropout",
@@ -360,11 +343,5 @@ if __name__ == "__main__":
         default=False,
         help="Use OOD data targets instead of ID test data"
     )
-    parser.add_argument(
-        "--max_batches",
-        type=int,
-        default=1000,
-        help="Maximum number of batches to process for ID data (default: 1000). Ignored for OOD data."
-    )
     args = parser.parse_args()
-    compute_feature_importances(args)
+    compute_attention_explanations(args)

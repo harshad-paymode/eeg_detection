@@ -15,20 +15,20 @@ import types
 seed_everything(42)
 
 
-
 def compute_feature_importances(args):
     checkpoint_dir = args.checkpoint_dir
     data_dir = args.data_dir
     save_dir_importances_base = args.save_dir_importances
     mc_dropout = args.mc_dropout
     ood_data = args.ood_data
+    max_batches = args.max_batches
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Determine final save directory
     save_dir_importances = save_dir_importances_base
     
-    os.makedirs(save_dir_importances,exist_ok=True)
+    os.makedirs(save_dir_importances, exist_ok=True)
     
     fold_list = os.listdir(checkpoint_dir)
     checkpoint_fold_list = [
@@ -36,6 +36,14 @@ def compute_feature_importances(args):
     ]
     fold_list.sort()
     checkpoint_fold_list.sort()
+    
+    # HARDCODED: For OOD data, only process fold_0 and fold_1
+    if ood_data:
+        fold_list = [f for f in fold_list if f in ['fold_0', 'fold_1']]
+        checkpoint_fold_list = [
+            os.path.join(checkpoint_dir, fold) for fold in fold_list
+        ]
+        print(f"\n[OOD MODE] Processing only folds: {fold_list}")
     
     # Determine targets (OOD vs ID)
     if ood_data:
@@ -45,7 +53,11 @@ def compute_feature_importances(args):
     
     for i, fold in enumerate(fold_list):
         print(f"\n{'='*60}")
-        print(f"Fold {i} | MC Dropout: {mc_dropout} | OOD: {ood_data}")
+        print(f"Fold {fold} (Index {i}) | MC Dropout: {mc_dropout} | OOD: {ood_data}")
+        if not ood_data:
+            print(f"Max Batches: {max_batches}")
+        else:
+            print(f"Max Batches: ALL (OOD - patient-specific data)")
         print(f"{'='*60}")
         
         checkpoint_path = os.path.join(
@@ -111,6 +123,9 @@ def compute_feature_importances(args):
                 prefetch_factor=20 if not mc_dropout else None,
             )
             
+            # HARDCODED: For OOD, process all batches; for ID, limit to max_batches
+            batches_limit = float('inf') if ood_data else max_batches
+            
             gnn_explainer = GNNExplainer(epochs=50, lr=0.01)
             config = ModelConfig(
                 "multiclass_classification", task_level="graph", return_type="raw"
@@ -136,7 +151,12 @@ def compute_feature_importances(args):
                 preictal_cntr = 0
                 ictal_cntr = 0
                 
+                batch_count = 0
                 for n, batch in enumerate(loader):
+                    # Stop after batches_limit (inf for OOD, max_batches for ID)
+                    if batch_count >= batches_limit:
+                        break
+                    
                     batch_unpacked = batch.to(device)
                     explanation = explainer(
                         x=batch_unpacked.x,
@@ -158,11 +178,12 @@ def compute_feature_importances(args):
                         interictal_masks += explanation.node_mask
                         interictal_cntr += 1
                     
-                    if n % 100 == 0 and n != 0:
-                        print(f"  Batch {n}/{len(loader)} done")
+                    batch_count += 1
+                    if batch_count % 100 == 0:
+                        print(f"  Batch {batch_count} done")
                 
                 # Average across dataset
-                sum_masks /= (n + 1)
+                sum_masks /= batch_count
                 interictal_masks /= max(interictal_cntr, 1)
                 ictal_masks /= max(ictal_cntr, 1)
                 preictal_masks /= max(preictal_cntr, 1)
@@ -180,8 +201,8 @@ def compute_feature_importances(args):
                 
                 # Save baseline results
                 save_path_fold = os.path.join(save_dir_importances, f"fold_{i}")
-                if not os.path.exists(save_path_fold):
-                    os.makedirs(save_path_fold,exist_ok=True)
+              
+                os.makedirs(save_path_fold, exist_ok=True)
                 
                 file_prefix = f"{t_name}_" if ood_data else ""
                 
@@ -202,7 +223,7 @@ def compute_feature_importances(args):
                     os.path.join(save_path_fold, f"{file_prefix}final_explanation_ictal.pt"),
                 )
                 
-                print(f"  Baseline processing complete for {t_name}")
+                print(f"  Baseline processing complete for {t_name} ({batch_count} batches)")
             
             # ================================================================
             # MC DROPOUT MODE: Instance-Level Stochastic Explanations
@@ -215,46 +236,67 @@ def compute_feature_importances(args):
                         m.eval = types.MethodType(lambda self: self.train(), m)
                 
                 save_path_fold = os.path.join(save_dir_importances, f"fold_{i}")
-                if not os.path.exists(save_path_fold):
-                    os.makedirs(save_path_fold,exist_ok=True)
+                
+                os.makedirs(save_path_fold, exist_ok=True)
                 
                 sample_counter = 0
                 
                 for batch_idx, batch in enumerate(loader):
+                    # Stop after batches_limit (inf for OOD, max_batches for ID)
+                    if sample_counter >= batches_limit:
+                        break
+                    
                     batch = batch.to(device)
                     true_label = batch.y.item()
                     num_nodes = batch.x.size(0)
                     
-                    # Collect explanations from T=50 MC passes
+                    # RUN EXPLAINER ONCE (outside the MC pass loop)
+                    explanation = explainer(
+                        x=batch.x,
+                        edge_index=batch.edge_index,
+                        target=batch.y,
+                        pyg_batch=batch.batch,
+                    )
+                    
+                    node_masks = explanation.node_mask  # Shape: [N, F]
+                    node_importance_base = node_masks.mean(dim=1) if node_masks.dim() > 1 else node_masks
+                    
+                    # Collect gradient-based variation from T=50 MC passes
                     all_node_masks = []
                     pred_labels = []
                     
                     for t in range(50):
-                        explanation = explainer(
-                            x=batch.x,
-                            edge_index=batch.edge_index,
-                            target=batch.y,
-                            pyg_batch=batch.batch,
-                        )
+                        # Forward pass with MC Dropout enabled
+                        x = batch.x.clone().detach().requires_grad_(True)
+                        out = model(x, batch.edge_index, batch.batch)
                         
-                        node_masks = explanation.node_mask  # Shape: [N, F]
+                        # Get target class (predicted class)
+                        target_class = out.argmax(dim=1)
                         
-                        # Aggregate node importance: mean across features -> [N]
-                        node_importance = node_masks.mean(dim=1) if node_masks.dim() > 1 else node_masks
-                        all_node_masks.append(node_importance)
+                        # Compute gradients
+                        loss = out[torch.arange(out.size(0)), target_class].sum()
+                        loss.backward()
                         
-                        pred_label = torch.argmax(explanation.prediction).item()
+                        # Per-node importance: mean absolute gradient across features
+                        node_importance = torch.abs(x.grad).mean(dim=1)  # [N]
+                        all_node_masks.append(node_importance.detach().cpu())
+                        
+                        pred_label = target_class.item()
                         pred_labels.append(pred_label)
                     
-                    # Stack: [T, N] and [T, E]
-                    all_node_masks = torch.stack(all_node_masks, dim=0).cpu()  # [T, N]
+                    # Stack: [T, N]
+                    all_node_masks = torch.stack(all_node_masks, dim=0)  # [T, N]
                     
                     # Majority vote for prediction
-                    pred_label_mode = torch.mode(torch.tensor(pred_labels))[0].item()
+                    pred_label_mode = max(set(pred_labels), key=pred_labels.count)
                     
-                    # Compute mean and std
-                    node_mask_mean = all_node_masks.mean(dim=0)  # [N]
-                    node_mask_std = all_node_masks.std(dim=0)    # [N]
+                    # Compute mean and std of gradient masks
+                    gradient_mask_mean = all_node_masks.mean(dim=0)  # [N]
+                    gradient_mask_std = all_node_masks.std(dim=0)    # [N]
+                    
+                    # Combine: Base explanation (GNNExplainer) + Gradient variation (MC Dropout)
+                    node_mask_mean = 0.7 * node_importance_base.cpu() + 0.3 * gradient_mask_mean
+                    node_mask_std = gradient_mask_std  # Uncertainty from MC Dropout
                     
                     # Create sample ID matching compute_uncertainty_metrics.py
                     sample_id = f"{fold}_{t_name}_{batch_idx}"
@@ -267,6 +309,7 @@ def compute_feature_importances(args):
                         "node_mask_mean": node_mask_mean.numpy(),
                         "node_mask_std": node_mask_std.numpy(),
                         "node_mask_all": all_node_masks.numpy(),
+                        "gnnexplainer_mask": node_importance_base.detach().cpu().numpy(),
                     }
                     
                     file_prefix = f"{t_name}_" if ood_data else ""
@@ -276,14 +319,13 @@ def compute_feature_importances(args):
                     )
                     torch.save(sample_data, save_path)
                     
-                    if batch_idx % 100 == 0:
-                        print(f"  MC Sample {batch_idx}/{len(loader)} done")
-                    
                     sample_counter += 1
+                    if sample_counter % 100 == 0:
+                        print(f"  MC Sample {sample_counter} done")
                 
                 print(f"  MC processing complete: {sample_counter} samples for {t_name}")
         
-        print(f"Fold {i} complete\n")
+        print(f"Fold {fold} complete\n")
 
 
 if __name__ == "__main__":
@@ -317,6 +359,12 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Use OOD data targets instead of ID test data"
+    )
+    parser.add_argument(
+        "--max_batches",
+        type=int,
+        default=1000,
+        help="Maximum number of batches to process for ID data (default: 1000). Ignored for OOD data."
     )
     args = parser.parse_args()
     compute_feature_importances(args)
