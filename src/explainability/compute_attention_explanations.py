@@ -119,7 +119,7 @@ def compute_attention_explanations(args):
                 shuffle=False,
                 drop_last=False,
                 num_workers=2 if not mc_dropout else 0,
-                prefetch_factor=20 if not mc_dropout else 0,
+                prefetch_factor=20 if not mc_dropout else None,
             )
             
             config = ModelConfig(
