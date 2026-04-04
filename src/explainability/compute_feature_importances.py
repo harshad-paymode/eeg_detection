@@ -293,8 +293,8 @@ def compute_feature_importances(args):
                 
                 print(f"MC processing complete: {sample_counter} samples for {t_name}")
 
-            file_prefix = f"{t_name}" if ood_data else "test_data"
-            torch.save(all_samples, os.path.join(save_path_fold, f"{file_prefix}.pt"))
+                file_prefix = f"{t_name}" if ood_data else "test_data"
+                torch.save(all_samples, os.path.join(save_path_fold, f"{file_prefix}.pt"))
             
         print(f"Fold {fold} complete\n")
 
