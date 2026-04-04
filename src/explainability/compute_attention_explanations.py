@@ -107,6 +107,8 @@ def compute_attention_explanations(args):
         
         # Process each target (for OOD: multiple targets; for ID: single target)
         for t_idx, (t_name, t_dir, log_name) in enumerate(zip(current_targets, current_dirs, log_names)):
+            #load all samples into this list
+            all_samples = []
             print(f"\nTarget: {t_name}")
             
             dataset = GraphDataset(t_dir)
@@ -300,15 +302,19 @@ def compute_attention_explanations(args):
                         "epistemic_entropy": epistemic_entropy
                     }
                     
-                    file_prefix = f"{t_name}_" if ood_data else ""
-                    torch.save(sample_data, os.path.join(save_path_fold, f"sample_{file_prefix}{batch_idx}.pt"))
+                    all_samples.append(sample_data)
                     
                     sample_counter += 1
                     if sample_counter % 100 == 0:
                         print(f"MC Sample {sample_counter}/{len(loader)} done")
                 
                 print(f"MC processing complete: {sample_counter} samples for {t_name}")
-        
+
+            file_prefix = f"{t_name}" if ood_data else "test_data"
+            file_path = os.path.join(save_path_fold, f"{file_prefix}.json")
+            with open(file_path, 'w') as f:
+                json.dumps(all_samples, f)
+                    
         print(f"Fold {fold} complete\n")
 
 
