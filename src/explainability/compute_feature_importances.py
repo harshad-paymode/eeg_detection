@@ -40,7 +40,7 @@ def compute_feature_importances(args):
     
     # HARDCODED: For OOD data, only process fold_0 and fold_1
     if ood_data:
-        fold_list = [f for f in fold_list if f in ['fold_0', 'fold_1','fold_2','fold_3']]
+        fold_list = [f for f in fold_list if f in ['fold_2','fold_3']]
         checkpoint_fold_list = [
             os.path.join(checkpoint_dir, fold) for fold in fold_list
         ]
