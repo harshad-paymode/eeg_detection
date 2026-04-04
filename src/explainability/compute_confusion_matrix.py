@@ -169,14 +169,23 @@ def compute_prediction_metrics():
             #     preds = torch.nn.functional.softmax(preds_raw, dim=1).argmax(dim=1)
 
             # Set exactly the modes we want
+            # if INITIAL_CONFIG['mc_dropout']:
+            #     model.train()
+            #     for m in model.modules():
+            #         if isinstance(m, (torch.nn.BatchNorm1d, torch_geometric.nn.norm.BatchNorm)):
+            #             m.eval()
+
+            # else:
+            #     model.eval()
+
             if INITIAL_CONFIG['mc_dropout']:
                 model.train()
                 for m in model.modules():
-                    if isinstance(m, (torch.nn.BatchNorm1d, torch_geometric.nn.norm.BatchNorm)):
+                    if isinstance(m, torch.nn.BatchNorm1d) or isinstance(m, torch_geometric.nn.norm.BatchNorm):
                         m.eval()
-
-            else:
-                model.eval()
+                    if m.__class__.__name__.startswith('Dropout') or 'GAT' in m.__class__.__name__:
+                        m.train()
+                        m.eval = types.MethodType(lambda self: self.train(), m)
         
 
             all_preds = []
