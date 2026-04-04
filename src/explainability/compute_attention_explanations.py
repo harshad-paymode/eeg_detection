@@ -313,7 +313,7 @@ def compute_attention_explanations(args):
                 file_prefix = f"{t_name}" if ood_data else "test_data"
                 file_path = os.path.join(save_path_fold, f"{file_prefix}.json")
                 with open(file_path, 'w') as f:
-                    json.dumps(all_samples, f)
+                    json.dump(all_samples, f)
                     
         print(f"Fold {fold} complete\n")
 
