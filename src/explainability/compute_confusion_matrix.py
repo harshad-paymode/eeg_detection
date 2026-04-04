@@ -150,8 +150,9 @@ def compute_prediction_metrics():
             if INITIAL_CONFIG['mc_dropout']:
                 model.train()
                 for m in model.modules():
-                    if isinstance(m, torch.nn.BatchNorm1d) or isinstance(m, torch_geometric.nn.norm.BatchNorm):
-                        m.eval()
+                    if m.__class__.__name__.startswith('Dropout') or 'GAT' in m.__class__.__name__:
+                        m.train()
+                        m.eval = types.MethodType(lambda self: self.train(), m)
 
             all_preds = []
             for p in range(50 if INITIAL_CONFIG['mc_dropout'] else 1):
