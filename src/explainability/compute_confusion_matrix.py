@@ -168,25 +168,34 @@ def compute_prediction_metrics():
             #     preds_raw = all_preds[0]
             #     preds = torch.nn.functional.softmax(preds_raw, dim=1).argmax(dim=1)
 
-            # 1. Set exactly the modes we want
+            # Set exactly the modes we want
             if INITIAL_CONFIG['mc_dropout']:
                 model.train()
                 for m in model.modules():
                     if isinstance(m, (torch.nn.BatchNorm1d, torch_geometric.nn.norm.BatchNorm)):
                         m.eval()
+
             else:
                 model.eval()
+        
 
             all_preds = []
             
-            # 2. Manual inference loop (Bypasses Lightning completely)
+            # Manual inference loop (Bypasses Lightning completely)
             with torch.no_grad():
                 for p in range(50 if INITIAL_CONFIG['mc_dropout'] else 1):
                     pass_preds = []
-                    
+                    print("MODEL:", model.training)
+                    for name, m in model.named_modules():
+                        if isinstance(m, (torch.nn.Dropout, torch.nn.BatchNorm1d, torch_geometric.nn.norm.BatchNorm)) or "GATv2Conv" in type(m).__name__:
+                            p = getattr(m, "p", None)
+                            print(name, type(m).__name__, "training=", m.training, "p=", p)
                     for batch in loader:
                         batch = batch.to(device)
                         out = model(batch.x, batch.edge_index, batch.batch)
+                        out1 = model(batch.x, batch.edge_index, batch.batch)
+                        out2 = model(batch.x, batch.edge_index, batch.batch)
+                        print("max diff:", (out1 - out2).abs().max().item())
                         pass_preds.append(out.detach().cpu())
                         
                     preds = torch.cat(pass_preds, dim=0)
