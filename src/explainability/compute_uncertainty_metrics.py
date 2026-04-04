@@ -214,26 +214,64 @@ def compute_uncertainty_metrics():
             dataset = GraphDataset(t_dir)
             loader = DataLoader(dataset, batch_size=1024, shuffle=False)
 
+            # if INITIAL_CONFIG['mc_dropout']:
+            #     model.train()
+            #     for m in model.modules():
+            #         if isinstance(m, torch.nn.BatchNorm1d) or isinstance(m, torch_geometric.nn.norm.BatchNorm):
+            #             m.eval()
+
+            # all_preds = []
+            # for p in range(50 if INITIAL_CONFIG['mc_dropout'] else 1):
+            #     preds = trainer.predict(model, loader)
+            #     preds = torch.cat(preds, dim=0)
+            #     if INITIAL_CONFIG['mc_dropout']:
+            #         preds = torch.nn.functional.softmax(preds, dim=1)
+            #     all_preds.append(preds)
+
+            # if INITIAL_CONFIG['mc_dropout']:
+            #     preds_raw = torch.stack(all_preds).mean(dim=0)
+            # else:
+            #     preds_raw = torch.nn.functional.softmax(all_preds[0], dim=1)
+
+            # preds_raw = preds_raw.to(device)
+            # ground_truth = torch.tensor([data.y.int().item() for data in dataset]).to(device)
+            
+            # Set exactly the modes we want
             if INITIAL_CONFIG['mc_dropout']:
                 model.train()
                 for m in model.modules():
-                    if isinstance(m, torch.nn.BatchNorm1d) or isinstance(m, torch_geometric.nn.norm.BatchNorm):
+                    if isinstance(m, (torch.nn.BatchNorm1d, torch_geometric.nn.norm.BatchNorm)):
                         m.eval()
+            else:
+                model.eval()
 
             all_preds = []
-            for p in range(50 if INITIAL_CONFIG['mc_dropout'] else 1):
-                preds = trainer.predict(model, loader)
-                preds = torch.cat(preds, dim=0)
-                if INITIAL_CONFIG['mc_dropout']:
-                    preds = torch.nn.functional.softmax(preds, dim=1)
-                all_preds.append(preds)
+            
+            # Manual inference loop (Bypasses Lightning completely)
+            with torch.no_grad():
+                for p in range(50 if INITIAL_CONFIG['mc_dropout'] else 1):
+                    pass_preds = []
+                    for batch in loader:
+                        batch = batch.to(device)
+                        out = model(batch.x, batch.edge_index, batch.batch)
+                        pass_preds.append(out.detach().cpu())
+                        
+                    preds = torch.cat(pass_preds, dim=0)
+                    
+                    if INITIAL_CONFIG['mc_dropout']:
+                        preds = torch.nn.functional.softmax(preds, dim=1)
+                    
+                    all_preds.append(preds)
 
+            # Aggregate
             if INITIAL_CONFIG['mc_dropout']:
                 preds_raw = torch.stack(all_preds).mean(dim=0)
+                preds = preds_raw.argmax(dim=1)
             else:
-                preds_raw = torch.nn.functional.softmax(all_preds[0], dim=1)
+                preds_raw = all_preds[0]
+                preds = torch.nn.functional.softmax(preds_raw, dim=1).argmax(dim=1)
 
-            preds_raw = preds_raw.to(device)
+            preds_raw, preds = preds_raw.to(device), preds.to(device)
             ground_truth = torch.tensor([data.y.int().item() for data in dataset]).to(device)
 
             # =========================================================

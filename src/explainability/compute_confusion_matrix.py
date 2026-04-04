@@ -196,7 +196,7 @@ def compute_prediction_metrics():
                     
                     all_preds.append(preds)
 
-            # 3. Aggregate
+            # Aggregate
             if INITIAL_CONFIG['mc_dropout']:
                 preds_raw = torch.stack(all_preds).mean(dim=0)
                 preds = preds_raw.argmax(dim=1)
