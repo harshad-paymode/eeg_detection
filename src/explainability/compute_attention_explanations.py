@@ -291,16 +291,16 @@ def compute_attention_explanations(args):
                     
                     # 4. Save
                     sample_data = {
-                        "sample_id": f"{fold}_{t_name}_{batch_idx}",
-                        "true_label": batch.y.item(),
-                        "pred_label_mode": pred_label_mode,
-                        "edge_mask_base": edge_mask_base,
-                        "edge_index": edge_index,
-                        "mean_probs": mean_probs.numpy(),
-                        "predictive_entropy": predictive_entropy,
-                        "aleatoric_entropy": aleatoric_entropy,
-                        "epistemic_entropy": epistemic_entropy
-                    }
+                    "sample_id": f"{fold}_{t_name}_{batch_idx}",
+                    "true_label": int(batch.y.item()),
+                    "pred_label_mode": int(pred_label_mode),
+                    "edge_mask_base": edge_mask_base.tolist(),
+                    "edge_index": edge_index.tolist(),
+                    "mean_probs": mean_probs.numpy().tolist(),
+                    "predictive_entropy": float(predictive_entropy),
+                    "aleatoric_entropy": float(aleatoric_entropy),
+                    "epistemic_entropy": float(epistemic_entropy),
+                }
                     
                     all_samples.append(sample_data)
                     
