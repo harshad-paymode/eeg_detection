@@ -158,6 +158,7 @@ def run_ablation():
                         out_rand_n = model(ablated_x_rand, batch.edge_index, batch.batch)
                         results[t_name]["random_nodes"]["drop"].append(base_conf - torch.nn.functional.softmax(out_rand_n, dim=1)[0, pred_class].item())
 
+            print(f"Ablation Done For {t_name} and {fold}")
     # Compile Final JSON 
     final_summary = {}
     for t_name, res in results.items():
