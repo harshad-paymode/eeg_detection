@@ -168,7 +168,7 @@ def run_ablation():
                 samples_processed += 1
                 if samples_processed % 100 == 0:
                     print(f"Ablation Sample {samples_processed}/{len(loader)} done")
-            print(f"Ablation Done For {t_name} and {fold} and Total samples processed{samples_processed}")
+            print(f"Ablation Done For {t_name} and {fold} and Total samples processed {samples_processed}")
     # Compile Final JSON 
     final_summary = {}
     for t_name, res in results.items():
