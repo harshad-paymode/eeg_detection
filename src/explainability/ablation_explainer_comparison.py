@@ -47,11 +47,10 @@ def run_ablation():
 
     results = {}
 
-    batches_limit = float('inf') if args.ood_data else args.max_samples_per_fold
 
     edge_config = ModelConfig("multiclass_classification", task_level="graph", return_type="raw")
     node_config = ModelConfig("multiclass_classification", task_level="graph", return_type="raw")
-
+    samples_processed = 0
     for fold in fold_list:
         print(f"\n{'='*40}\nProcessing {fold} | OOD: {args.ood_data}\n{'='*40}")
         checkpoint_fold_dir = os.path.join(args.checkpoint_dir, fold)
@@ -86,6 +85,8 @@ def run_ablation():
                     "gnn_nodes": {"time": [], "drop": [], "sparsity": []},
                     "random_nodes": {"drop": []}
                 }
+            
+            batches_limit = float('inf') if args.ood_data else args.max_samples_per_fold
 
             dataset = GraphDataset(t_dir)
             loader = DataLoader(dataset, batch_size=1, shuffle=False)
@@ -167,7 +168,7 @@ def run_ablation():
                 samples_processed += 1
                 if samples_processed % 100 == 0:
                     print(f"Ablation Sample {samples_processed}/{len(loader)} done")
-        print(f"Ablation Done For {t_name} and {fold}")
+        print(f"Ablation Done For {t_name} and {fold} and Total samples processed{samples_processed}")
     # Compile Final JSON 
     final_summary = {}
     for t_name, res in results.items():
