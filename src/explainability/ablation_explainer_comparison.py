@@ -20,7 +20,7 @@ parser = ArgumentParser()
 parser.add_argument("--checkpoint_dir", type=str, required=True)
 parser.add_argument("--data_dir", type=str, required=True)
 parser.add_argument("--drop_fraction", type=float, default=0.20, help="Fraction to drop")
-parser.add_argument("--max_samples_per_fold", type=int, default=200)
+parser.add_argument("--max_samples_per_fold", type=int, default=1000)
 parser.add_argument("--save_results", type=str, default="save_ablation_results/")
 parser.add_argument("--ood_data", action="store_true", default=False)
 args = parser.parse_args()
@@ -163,7 +163,7 @@ def run_ablation():
 
                 samples_processed += 1
                 if samples_processed % 100 == 0:
-                    print(f"MC Sample {samples_processed}/{len(loader)} done")
+                    print(f"Ablation Sample {samples_processed}/{len(loader)} done")
         print(f"Ablation Done For {t_name} and {fold}")
     # Compile Final JSON 
     final_summary = {}

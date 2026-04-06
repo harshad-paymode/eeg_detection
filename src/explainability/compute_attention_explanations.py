@@ -46,7 +46,7 @@ def compute_attention_explanations(args):
     fold_list.sort()
     checkpoint_fold_list.sort()
     
-    # HARDCODED: For OOD data, only process fold_0 and fold_1
+    # HARDCODED: For OOD data, only process fold_0, fold_1, fold_2 and fold_3
     if ood_data:
         fold_list = [f for f in fold_list if f in ['fold_0', 'fold_1', 'fold_2','fold_3']]
         checkpoint_fold_list = [
