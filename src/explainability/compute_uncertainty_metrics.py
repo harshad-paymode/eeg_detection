@@ -214,28 +214,6 @@ def compute_uncertainty_metrics():
             dataset = GraphDataset(t_dir)
             loader = DataLoader(dataset, batch_size=1024, shuffle=False)
 
-            # if INITIAL_CONFIG['mc_dropout']:
-            #     model.train()
-            #     for m in model.modules():
-            #         if isinstance(m, torch.nn.BatchNorm1d) or isinstance(m, torch_geometric.nn.norm.BatchNorm):
-            #             m.eval()
-
-            # all_preds = []
-            # for p in range(50 if INITIAL_CONFIG['mc_dropout'] else 1):
-            #     preds = trainer.predict(model, loader)
-            #     preds = torch.cat(preds, dim=0)
-            #     if INITIAL_CONFIG['mc_dropout']:
-            #         preds = torch.nn.functional.softmax(preds, dim=1)
-            #     all_preds.append(preds)
-
-            # if INITIAL_CONFIG['mc_dropout']:
-            #     preds_raw = torch.stack(all_preds).mean(dim=0)
-            # else:
-            #     preds_raw = torch.nn.functional.softmax(all_preds[0], dim=1)
-
-            # preds_raw = preds_raw.to(device)
-            # ground_truth = torch.tensor([data.y.int().item() for data in dataset]).to(device)
-            
             # Set exactly the modes we want
             if INITIAL_CONFIG['mc_dropout']:
                 model.train()
