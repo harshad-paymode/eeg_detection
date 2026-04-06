@@ -47,6 +47,8 @@ def run_ablation():
 
     results = {}
 
+    batches_limit = float('inf') if args.ood_data else args.max_samples_per_fold
+
     edge_config = ModelConfig("multiclass_classification", task_level="graph", return_type="raw")
     node_config = ModelConfig("multiclass_classification", task_level="graph", return_type="raw")
 
@@ -90,7 +92,8 @@ def run_ablation():
             samples_processed = 0
 
             for batch in loader:
-                if samples_processed >= args.max_samples_per_fold: break
+                if samples_processed >= batches_limit: 
+                    break
                 batch = batch.to(device)
                 
                 with torch.no_grad():
