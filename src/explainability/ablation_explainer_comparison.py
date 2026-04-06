@@ -16,6 +16,15 @@ seed_everything(42)
 logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
 logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 
+parser = ArgumentParser()
+parser.add_argument("--checkpoint_dir", type=str, required=True)
+parser.add_argument("--data_dir", type=str, required=True)
+parser.add_argument("--drop_fraction", type=float, default=0.20, help="Fraction to drop")
+parser.add_argument("--max_samples_per_fold", type=int, default=200)
+parser.add_argument("--save_results", type=str, default="save_ablation_results/")
+parser.add_argument("--ood_data", action="store_true", default=False)
+args = parser.parse_args()
+
 def compute_sparsity(mask):
     """Calculates normalized sparsity (1 = extremely focused/sparse, 0 = uniform)."""
     if mask.sum() == 0: return 0.0
@@ -25,14 +34,6 @@ def compute_sparsity(mask):
     return max(0.0, 1.0 - (entropy.item() / max_entropy))
 
 def run_ablation():
-    parser = ArgumentParser()
-    parser.add_argument("--checkpoint_dir", type=str, required=True)
-    parser.add_argument("--data_dir", type=str, required=True)
-    parser.add_argument("--drop_fraction", type=float, default=0.20, help="Fraction to drop")
-    parser.add_argument("--max_samples_per_fold", type=int, default=200)
-    parser.add_argument("--save_results", type=str, default="save_ablation_results/")
-    parser.add_argument("--ood_data", action="store_true", default=False)
-    args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     fold_list = sorted([f for f in os.listdir(args.checkpoint_dir) if f.startswith("fold_")])
