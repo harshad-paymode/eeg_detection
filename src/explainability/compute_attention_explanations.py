@@ -17,9 +17,13 @@ import matplotlib as mpl
 from statistics import mean, stdev
 from torch_geometric.explain import AttentionExplainer, Explainer, ModelConfig
 import types
+import logging
 from argparse import ArgumentParser
 from torch_geometric import seed_everything
 seed_everything(42)
+
+logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
+logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 
 
 def compute_attention_explanations(args):

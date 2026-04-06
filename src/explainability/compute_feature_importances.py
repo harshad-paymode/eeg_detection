@@ -7,11 +7,14 @@ from src.models import GATv2Lightning
 from src.utils.dataloader_utils import GraphDataset
 import lightning.pytorch as pl
 import os
+import logging
 import json
 from torch_geometric import seed_everything
 from argparse import ArgumentParser
 from torch_geometric.explain import GNNExplainer, Explainer, ModelConfig
 import types
+logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
+logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 
 seed_everything(42)
 
