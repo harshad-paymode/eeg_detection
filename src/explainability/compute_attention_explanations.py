@@ -258,7 +258,8 @@ def compute_attention_explanations(args):
                 
                 sample_counter = 0
                 for batch_idx, batch in enumerate(loader):
-                    if sample_counter >= batches_limit: break
+                    if sample_counter >= batches_limit: 
+                        break
                     batch = batch.to(device)
                     
                     # 1. Run Explainer EXACTLY ONCE

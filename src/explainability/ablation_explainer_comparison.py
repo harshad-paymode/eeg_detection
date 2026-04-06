@@ -99,8 +99,9 @@ def run_ablation():
                     pred_class = base_probs.argmax(dim=1).item()
                     base_conf = base_probs[0, pred_class].item()
                 
-                if pred_class != batch.y.item(): continue
-                samples_processed += 1
+                if pred_class != batch.y.item(): 
+                    continue
+                
 
                 # ==========================================
                 # DOMAIN 1: EDGE ABLATION
@@ -159,7 +160,11 @@ def run_ablation():
                         out_rand_n = model(ablated_x_rand, batch.edge_index, batch.batch)
                         results[t_name]["random_nodes"]["drop"].append(base_conf - torch.nn.functional.softmax(out_rand_n, dim=1)[0, pred_class].item())
 
-            print(f"Ablation Done For {t_name} and {fold}")
+
+                samples_processed += 1
+                if samples_processed % 100 == 0:
+                    print(f"MC Sample {samples_processed}/{len(loader)} done")
+        print(f"Ablation Done For {t_name} and {fold}")
     # Compile Final JSON 
     final_summary = {}
     for t_name, res in results.items():
