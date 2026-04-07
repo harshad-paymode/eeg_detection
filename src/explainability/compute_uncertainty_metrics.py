@@ -227,7 +227,7 @@ def compute_uncertainty_metrics():
             
             # Manual inference loop (Bypasses Lightning completely)
             with torch.no_grad():
-                for p in range(100 if INITIAL_CONFIG['mc_dropout'] else 1):
+                for p in range(200 if INITIAL_CONFIG['mc_dropout'] else 1):
                     pass_preds = []
                     for batch in loader:
                         batch = batch.to(device)
