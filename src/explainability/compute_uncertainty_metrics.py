@@ -499,7 +499,7 @@ def compute_prediction_metrics():
                         # Apply Softmax immediately so we ensemble probabilities, not raw logits
                         probs = torch.nn.functional.softmax(preds_logits, dim=1) 
                         all_ensemble_passes.append(probs)
-
+                print(f"Done for {fold}")
             # --- Ensemble Metrics Calculation ---
             stacked = torch.stack(all_ensemble_passes) # [Num_Folds * Num_Passes, Total_Samples, 3]
             print(f"Total passes ensembled for {t_name}: {stacked.shape[0]}")
