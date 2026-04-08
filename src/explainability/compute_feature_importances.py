@@ -248,11 +248,11 @@ def compute_feature_importances(args):
                             all_preds.append(preds.detach().cpu())
                             
                     all_preds = torch.stack(all_preds, dim=0).squeeze(1) # Shape: [50, 3]
-                    mean_probs = all_preds.mean(dim=0, keepdim=True)
+                    mean_probs = all_preds.mean(dim=0)
                     pred_label_mode = mean_probs.argmax(dim=0).item()
                     
                     # 3. Calculate Entropies
-                    predictive_entropy = -torch.sum(mean_probs * torch.log(mean_probs + 1e-10), dim=1).item()
+                    predictive_entropy = -torch.sum(mean_probs * torch.log(mean_probs + 1e-10)).item()
                     entropies = -torch.sum(all_preds * torch.log(all_preds + 1e-10), dim=1)
                     aleatoric_entropy = entropies.mean().item()
                     epistemic_entropy = predictive_entropy - aleatoric_entropy
