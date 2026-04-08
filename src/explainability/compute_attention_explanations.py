@@ -85,7 +85,7 @@ def compute_attention_explanations(args):
             hidden_dim=32,
             n_heads=9,
             slope=0.0025,
-            dropout=mc_dropout,
+            dropout_on=mc_dropout,
             pooling_method="mean",
             activation="leaky_relu",
             norm_method="batch",
