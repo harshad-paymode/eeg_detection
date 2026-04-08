@@ -25,7 +25,6 @@ def compute_feature_importances(args):
     save_dir_importances_base = args.save_dir_importances
     mc_dropout = args.mc_dropout
     ood_data = args.ood_data
-    max_batches = args.max_batches
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -41,13 +40,6 @@ def compute_feature_importances(args):
     fold_list.sort()
     checkpoint_fold_list.sort()
     
-    # HARDCODED: For OOD data, only process fold_0, fold_1, fold_2 and fold_3
-    if ood_data:
-        fold_list = [f for f in fold_list if f in ['fold_0', 'fold_1', 'fold_2','fold_3']]
-        checkpoint_fold_list = [
-            os.path.join(checkpoint_dir, fold) for fold in fold_list
-        ]
-        print(f"\n[OOD MODE] Processing only folds: {fold_list}")
     
     # Determine targets (OOD vs ID)
     if ood_data:
@@ -58,10 +50,7 @@ def compute_feature_importances(args):
     for i, fold in enumerate(fold_list):
         print(f"\n{'='*60}")
         print(f"Fold {fold} (Index {i}) | MC Dropout: {mc_dropout} | OOD: {ood_data}")
-        if not ood_data:
-            print(f"Max Batches: {max_batches}")
-        else:
-            print(f"Max Batches: ALL (OOD - patient-specific data)")
+       
         print(f"{'='*60}")
         
         checkpoint_path = os.path.join(
@@ -129,8 +118,6 @@ def compute_feature_importances(args):
                 prefetch_factor=20 if not mc_dropout else None,
             )
             
-            # HARDCODED: For OOD, process all batches; for ID, limit to max_batches
-            batches_limit = float('inf') if ood_data else max_batches
             
             gnn_explainer = GNNExplainer(epochs=50, lr=0.01)
             config = ModelConfig(
@@ -159,10 +146,6 @@ def compute_feature_importances(args):
                 
                 batch_count = 0
                 for n, batch in enumerate(loader):
-                    # Stop after batches_limit (inf for OOD, max_batches for ID)
-                    if batch_count >= batches_limit:
-                        break
-                    
                     batch_unpacked = batch.to(device)
                     explanation = explainer(
                         x=batch_unpacked.x,
@@ -240,7 +223,6 @@ def compute_feature_importances(args):
                 
                 sample_counter = 0
                 for batch_idx, batch in enumerate(loader):
-                    if sample_counter >= batches_limit: break
                     batch = batch.to(device)
                     
                     # 1. Run Explainer EXACTLY ONCE
@@ -334,11 +316,6 @@ if __name__ == "__main__":
         default=False,
         help="Use OOD data targets instead of ID test data"
     )
-    parser.add_argument(
-        "--max_batches",
-        type=int,
-        default=1000,
-        help="Maximum number of batches to process for ID data (default: 1000). Ignored for OOD data."
-    )
+
     args = parser.parse_args()
     compute_feature_importances(args)
