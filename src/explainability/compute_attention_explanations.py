@@ -294,21 +294,23 @@ def compute_attention_explanations(args):
                     sample_counter += 1
                     if sample_counter % 100 == 0:
                         print(f"MC Sample {sample_counter}/{len(loader)} done")
+
+                        # --- NEW LOGGING BLOCK FOR VERIFICATION ---
+                        if all_samples:
+                            mean_pred = sum(s["predictive_entropy"] for s in all_samples) / len(all_samples)
+                            mean_alea = sum(s["aleatoric_entropy"] for s in all_samples) / len(all_samples)
+                            mean_epis = sum(s["epistemic_entropy"] for s in all_samples) / len(all_samples)
+                            
+                            print(f"\n--- Entropy Verification ({t_name}) ---")
+                            print(f"Mean Total (Predictive) Entropy : {mean_pred:.5f}")
+                            print(f"Mean Aleatoric Entropy          : {mean_alea:.5f}")
+                            print(f"Mean Epistemic Entropy          : {mean_epis:.5f}")
+                            print("-" * 40 + "\n")
+                        # ------------------------------------------
                 
                 print(f"MC processing complete: {sample_counter} samples for {t_name}")
 
-                # --- NEW LOGGING BLOCK FOR VERIFICATION ---
-                if all_samples:
-                    mean_pred = sum(s["predictive_entropy"] for s in all_samples) / len(all_samples)
-                    mean_alea = sum(s["aleatoric_entropy"] for s in all_samples) / len(all_samples)
-                    mean_epis = sum(s["epistemic_entropy"] for s in all_samples) / len(all_samples)
-                    
-                    print(f"\n--- Entropy Verification ({t_name}) ---")
-                    print(f"Mean Total (Predictive) Entropy : {mean_pred:.10f}")
-                    print(f"Mean Aleatoric Entropy          : {mean_alea:.10f}")
-                    print(f"Mean Epistemic Entropy          : {mean_epis:.10f}")
-                    print("-" * 40 + "\n")
-                # ------------------------------------------
+
 
                 file_prefix = f"{t_name}" if ood_data else "test_data"
                 file_path = os.path.join(save_path_fold, f"{file_prefix}.json")
