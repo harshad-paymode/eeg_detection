@@ -91,7 +91,7 @@ def compute_feature_importances(args):
             hidden_dim=hidden_dim,
             n_heads=n_heads,
             slope=slope,
-            dropout=mc_dropout,
+            dropout_on=mc_dropout,
             pooling_method=pooling_method,
             activation=activation,
             norm_method=norm_method,

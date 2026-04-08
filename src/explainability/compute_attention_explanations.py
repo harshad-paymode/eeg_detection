@@ -250,7 +250,6 @@ def compute_attention_explanations(args):
                     edge_index = explanation.edge_index.detach().cpu().numpy()
                     
                     # 2. Run Model 50 times for Predictive Uncertainty
-                    # 2. Run Model 50 times for Predictive Uncertainty
                     all_preds = []
                     model.train()
                     for m in model.modules():
