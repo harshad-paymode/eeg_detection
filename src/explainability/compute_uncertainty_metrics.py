@@ -122,6 +122,7 @@ def compute_mutual_information(all_probs_list, total_entropy):
     """
     aleatoric = compute_aleatoric_entropy(all_probs_list).to(total_entropy.device)
     epistemic = total_entropy - aleatoric
+    epistemic = torch.clamp(epistemic, min=0.0)
     return epistemic
 
 

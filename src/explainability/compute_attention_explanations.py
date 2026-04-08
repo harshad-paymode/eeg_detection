@@ -250,27 +250,31 @@ def compute_attention_explanations(args):
                     edge_index = explanation.edge_index.detach().cpu().numpy()
                     
                     # 2. Run Model 50 times for Predictive Uncertainty
+                    # 2. Run Model 50 times for Predictive Uncertainty
+                    all_preds = []
                     model.train()
                     for m in model.modules():
-                        if isinstance(m, torch.nn.BatchNorm1d) or isinstance(m, torch_geometric.nn.norm.BatchNorm):
+                        if isinstance(m, (torch.nn.BatchNorm1d, torch_geometric.nn.norm.BatchNorm)):
                             m.eval()
-                    
-                    all_preds = []
                     with torch.no_grad():
                         for t in range(50):
                             out = model(batch.x, batch.edge_index, batch.batch)
                             preds = torch.nn.functional.softmax(out, dim=1)
                             all_preds.append(preds.detach().cpu())
-                    
+                            
                     all_preds = torch.stack(all_preds, dim=0).squeeze(1) # Shape: [50, 3]
-                    mean_probs = all_preds.mean(dim=0)
-                    pred_label_mode = mean_probs.argmax(dim=0).item()
-                    
-                    # 3. Calculate Entropies
-                    predictive_entropy = -torch.sum(mean_probs * torch.log(mean_probs + 1e-10)).item()
-                    entropies = -torch.sum(all_preds * torch.log(all_preds + 1e-10))
+                    mean_probs = all_preds.mean(dim=0, keepdim=True)     # Shape: [1, 3]
+                    pred_label_mode = mean_probs.argmax(dim=1).item()    # Extract single scalar label
+
+                    # 3. Calculate Entropies (Exact match to batched dimensions & clamp)
+                    predictive_entropy = -torch.sum(mean_probs * torch.log(mean_probs + 1e-10), dim=1).item()
+                    entropies = -torch.sum(all_preds * torch.log(all_preds + 1e-10), dim=1)
                     aleatoric_entropy = entropies.mean().item()
-                    epistemic_entropy = predictive_entropy - aleatoric_entropy
+
+                    # Enforce strict positive clamp
+                    epistemic_entropy = max(0.0, predictive_entropy - aleatoric_entropy)
+
+                    print(f"epistemic - {epistemic_entropy}, aleatoric_entropy - {aleatoric_entropy}")
                     
                     # 4. Save
                     sample_data = {
