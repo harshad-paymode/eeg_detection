@@ -8,7 +8,7 @@ from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
 
 
 
-from utils.dataloader_utils import (
+from src.utils.dataloader_utils import (
     GraphDataset,
     HDFDataset_Writer,
     HDFDatasetLoader,
@@ -97,39 +97,38 @@ INITIAL_CONFIG = dict(
 #Pre precossing and saving the data to GCP bucket.
 
 def generate_and_save_kfold_splits():
-    # """Generate and save train, val, and test splits for all folds."""
-    # writer = HDFDataset_Writer(
-    #     seizure_lookback=SEIZURE_LOOKBACK,
-    #     buffer_time=BUFFER_TIME,
-    #     sample_timestep=TIMESTEP,
-    #     inter_overlap=INTER_OVERLAP,
-    #     preictal_overlap=PREICTAL_OVERLAP,
-    #     ictal_overlap=ICTAL_OVERLAP,
-    #     downsample=DOWNSAMPLING_F,
-    #     sampling_f=SFREQ,
-    #     smote=SMOTE_FLAG,
-    #     connectivity_metric=CONNECTIVITY_METRIC,
-    #     npy_dataset_path=NPY_DATA_DIR,
-    #     event_tables_path=EVENT_TABLES_DIR,
-    #     cache_folder=CACHE_DIR,
-    # )
-    # cache_file_path = writer.get_dataset()
+    """Generate and save train, val, and test splits for all folds."""
+    writer = HDFDataset_Writer(
+        seizure_lookback=SEIZURE_LOOKBACK,
+        buffer_time=BUFFER_TIME,
+        sample_timestep=TIMESTEP,
+        inter_overlap=INTER_OVERLAP,
+        preictal_overlap=PREICTAL_OVERLAP,
+        ictal_overlap=ICTAL_OVERLAP,
+        downsample=DOWNSAMPLING_F,
+        sampling_f=SFREQ,
+        smote=SMOTE_FLAG,
+        connectivity_metric=CONNECTIVITY_METRIC,
+        npy_dataset_path=NPY_DATA_DIR,
+        event_tables_path=EVENT_TABLES_DIR,
+        cache_folder=CACHE_DIR,
+    )
+    cache_file_path = writer.get_dataset()
 
-    # loader = HDFDatasetLoader(
-    #     root=cache_file_path,
-    #     train_val_split_ratio=TRAIN_VAL_SPLIT,
-    #     loso_subject=None,
-    #     sampling_f=DOWNSAMPLING_F,
-    #     extract_features=MNE_FEATURES,
-    #     fft=FFT,
-    #     seed=SEED,
-    #     used_classes_dict=USED_CLASSES_DICT,
-    #     normalize_with=NORMALIZING_PERIOD,
-    #     kfold_cval_mode=KFOLD_CVAL_MODE,
-    # )
+    loader = HDFDatasetLoader(
+        root=cache_file_path,
+        train_val_split_ratio=TRAIN_VAL_SPLIT,
+        loso_subject=None,
+        sampling_f=DOWNSAMPLING_F,
+        extract_features=MNE_FEATURES,
+        fft=FFT,
+        seed=SEED,
+        used_classes_dict=USED_CLASSES_DICT,
+        normalize_with=NORMALIZING_PERIOD,
+        kfold_cval_mode=KFOLD_CVAL_MODE,
+    )
 
-    # full_data_path = loader.get_datasets()[0]
-    full_data_path = "/home/harshad03897/cloud_drive/cache/train/"
+    full_data_path = loader.get_datasets()[0]
     full_dataset = GraphDataset(full_data_path)
     
     label_array = np.array([data.y.item() for data in full_dataset]).reshape(-1, 1)
