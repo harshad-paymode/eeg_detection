@@ -222,8 +222,6 @@ def compute_feature_importances(args):
                 os.makedirs(save_path_fold, exist_ok=True)
                 
                 sample_counter = 0
-                epistemic_list = []
-                aleatoric_list = []
                 
                 for batch_idx, batch in enumerate(loader):
                     batch = batch.to(device)
@@ -263,8 +261,6 @@ def compute_feature_importances(args):
                     # Enforce strict positive clamp
                     epistemic_entropy = max(0.0, predictive_entropy - aleatoric_entropy)
 
-                    epistemic_list.append(epistemic_entropy)
-                    aleatoric_list.append(aleatoric_entropy)
                     
                     # 4. Save
                     sample_data = {
@@ -284,9 +280,6 @@ def compute_feature_importances(args):
                     sample_counter += 1
                     if sample_counter % 100 == 0:
                         print(f"MC Sample {sample_counter}/{len(loader)} done")
-
-                        print(f"Aleatoric entropy so far- {np.mean(aleatoric_list)}")
-                        print(f"Epistemic entropy so far- {np.mean(epistemic_list)}")
                 
                 print(f"MC processing complete: {sample_counter} samples for {t_name}")
 
