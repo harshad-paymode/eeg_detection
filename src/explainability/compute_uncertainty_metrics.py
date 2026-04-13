@@ -52,43 +52,74 @@ INITIAL_CONFIG = dict(
     weight_decay=0.0078
 )
 
+
 def compute_aurc(probs, targets):
     """Computes Area Under the Risk-Coverage (AURC) directly on GPU."""
     confidences, preds = torch.max(probs, dim=1)
     errors = (preds != targets).float()
     
+    # Sort by confidence descending
     sorted_indices = torch.argsort(confidences, descending=True)
     sorted_errors = errors[sorted_indices]
     
+    # Calculate cumulative risk
     n_samples = len(targets)
     risks = torch.cumsum(sorted_errors, dim=0) / torch.arange(1, n_samples + 1, device=probs.device).float()
     
+    # Area under curve calculation
     aurc = torch.sum(risks) / n_samples
     return aurc.item()
 
+
 def compute_nll(probs, targets, num_classes=3):
-    """Computes Negative Log-Likelihood (NLL). Clamped to prevent NaN."""
-    probs = torch.clamp(probs, min=1e-7, max=1.0)
-    log_probs = torch.log(probs) 
-    nll_vals = -log_probs[torch.arange(len(targets)), targets]
-    return torch.nanmean(nll_vals).item()
+    """Computes Negative Log-Likelihood (NLL)."""
+    # probs shape: (N, num_classes)
+    # targets shape: (N,)
+    log_probs = torch.log(probs + 1e-10)  # Add small epsilon to avoid log(0)
+    nll = -log_probs[torch.arange(len(targets)), targets].mean()
+    return nll.item()
+
 
 def compute_total_entropy(probs):
-    """Computes Predictive Entropy. Clamped to prevent NaN."""
-    probs = torch.clamp(probs, min=1e-7, max=1.0)
-    entropy = -torch.sum(probs * torch.log(probs), dim=1) 
+    """Computes Predictive Entropy (Total Entropy) per sample and mean."""
+    # probs shape: (N, num_classes)
+    entropy = -torch.sum(probs * torch.log(probs + 1e-10), dim=1)  # (N,)
     return entropy
 
+
 def compute_aleatoric_entropy(all_probs_list):
-    """Computes Aleatoric Entropy from MC dropout stochastic passes."""
+    """
+    Computes Aleatoric Entropy (Expected Entropy) from MC dropout samples.
+    
+    Args:
+        all_probs_list: List of (N, num_classes) tensors from MC passes
+    
+    Returns:
+        Aleatoric entropy per sample, shape (N,)
+    """
+    # Stack to (num_passes, N, num_classes)
     stacked = torch.stack(all_probs_list, dim=0)
-    stacked = torch.clamp(stacked, min=1e-7, max=1.0)
-    entropies = -torch.sum(stacked * torch.log(stacked), dim=2) 
-    aleatoric = torch.nanmean(entropies, dim=0) 
+    
+    # Compute entropy for each pass, then average
+    # entropy shape per pass: (N,)
+    entropies = -torch.sum(stacked * torch.log(stacked + 1e-10), dim=2)  # (num_passes, N)
+    aleatoric = entropies.mean(dim=0)  # (N,)
+    
     return aleatoric
 
+
 def compute_mutual_information(all_probs_list, total_entropy):
-    """Computes Epistemic Uncertainty (Mutual Information)."""
+    """
+    Computes Mutual Information (Epistemic Uncertainty).
+    MI = Total Entropy - Aleatoric Entropy
+    
+    Args:
+        all_probs_list: List of (N, num_classes) tensors from MC passes
+        total_entropy: Per-sample total entropy, shape (N,)
+    
+    Returns:
+        Mutual information per sample, shape (N,)
+    """
     aleatoric = compute_aleatoric_entropy(all_probs_list).to(total_entropy.device)
     epistemic = total_entropy - aleatoric
     epistemic = torch.clamp(epistemic, min=0.0)
@@ -116,24 +147,21 @@ def compute_uncertainty_metrics():
     #     temp_file_path = os.path.join(TEMPERATURES_PATH, "optimal_temperatures.json")
     #     with open(temp_file_path, "r") as f:
     #         optimal_temperatures = json.load(f)
+    #     print(f"Loaded optimal temperatures from {temp_file_path}")
 
+    # Determine targets once
     if OOD_DATA:
         target_names = sorted([p for p in os.listdir(TEST_DATA_DIR) if os.path.isdir(os.path.join(TEST_DATA_DIR, p))])
     else:
         target_names = None
 
-    # Tracking variable for Ensemble
-    ensemble_tracking = {}
-    if OOD_DATA:
-        for t in target_names:
-            ensemble_tracking[t] = {"all_passes": [], "ground_truth": None}
-
+    # Dictionary to hold cross-fold metrics per target
     summary_metrics = {}
 
     for n, fold in enumerate(fold_list):
-        print(f"\n{'='*50}")
         print(f"Evaluating Fold {n} | MC Dropout: {INITIAL_CONFIG['mc_dropout']}")
         
+        # 1. Determine exact test targets for this fold
         if OOD_DATA:
             current_targets = target_names
             current_dirs = [os.path.join(TEST_DATA_DIR, p) for p in current_targets]
@@ -146,6 +174,7 @@ def compute_uncertainty_metrics():
         checkpoint_fold_dir = os.path.join(CHECKPOINT_DIR, fold)
         checkpoint_path = os.path.join(checkpoint_fold_dir, os.listdir(checkpoint_fold_dir)[0])
         
+        # Grab features shape dynamically
         features_shape = GraphDataset(current_dirs[0])[0].x.shape[-1]
         
         model = GATv2Lightning.load_from_checkpoint(
@@ -177,6 +206,7 @@ def compute_uncertainty_metrics():
         dir_fold = os.path.join(SAVE_DIR_METRICS, f"fold_{n}")
         os.makedirs(dir_fold, exist_ok=True)
 
+        # Evaluate Each Target
         for t_name, t_dir, log_name in zip(current_targets, current_dirs, log_names):
             wandb.init(project=project_name, name=log_name, config=INITIAL_CONFIG)
             
@@ -185,6 +215,7 @@ def compute_uncertainty_metrics():
             dataset = GraphDataset(t_dir)
             loader = DataLoader(dataset, batch_size=1024, shuffle=False)
 
+            # Set exactly the modes we want
             if INITIAL_CONFIG['mc_dropout']:
                 model.train()
                 for m in model.modules():
@@ -195,6 +226,7 @@ def compute_uncertainty_metrics():
 
             all_preds = []
             
+            # Manual inference loop (Bypasses Lightning completely)
             with torch.no_grad():
                 for p in range(50 if INITIAL_CONFIG['mc_dropout'] else 1):
                     pass_preds = []
@@ -204,74 +236,89 @@ def compute_uncertainty_metrics():
                         pass_preds.append(out.detach().cpu())
                         
                     preds = torch.cat(pass_preds, dim=0)
+                    
                     if INITIAL_CONFIG['mc_dropout']:
                         preds = torch.nn.functional.softmax(preds, dim=1)
+                    
                     all_preds.append(preds)
 
+            # Aggregate
             if INITIAL_CONFIG['mc_dropout']:
-                preds_raw = torch.nanmean(torch.stack(all_preds), dim=0)
-                preds_class = preds_raw.argmax(dim=1)
+                preds_raw = torch.stack(all_preds).mean(dim=0)
+                preds = preds_raw.argmax(dim=1)
             else:
-                preds_raw = torch.nn.functional.softmax(all_preds[0], dim=1) 
-                preds_class = preds_raw.argmax(dim=1)
+                preds_raw = all_preds[0]
+                preds = torch.nn.functional.softmax(preds_raw, dim=1).argmax(dim=1)
 
-            preds_raw, preds_class = preds_raw.to(device), preds_class.to(device)
+            preds_raw, preds = preds_raw.to(device), preds.to(device)
             ground_truth = torch.tensor([data.y.int().item() for data in dataset]).to(device)
 
-            if OOD_DATA:
-                if INITIAL_CONFIG['mc_dropout']:
-                    ensemble_tracking[t_name]["all_passes"].extend([p.detach().cpu() for p in all_preds])
-                else:
-                    ensemble_tracking[t_name]["all_passes"].append(preds_raw.detach().cpu())
-                    
-                if ensemble_tracking[t_name]["ground_truth"] is None:
-                    ensemble_tracking[t_name]["ground_truth"] = ground_truth.detach().cpu()
-
+            # =========================================================
             # COMPUTE UNCERTAINTY METRICS
+            # =========================================================
+            
+            # ECE (Calibration)
             fold_ece = ece_metric(preds_raw, ground_truth).item()
+            
+            # NLL
             fold_nll = compute_nll(preds_raw, ground_truth, num_classes=3)
             
+            # Total Entropy (Predictive Entropy)
             total_entropy_per_sample = compute_total_entropy(preds_raw)
-            fold_total_entropy = torch.nanmean(total_entropy_per_sample).item()
+            fold_total_entropy = total_entropy_per_sample.mean().item()
             
+            # Aleatoric Entropy (Expected Entropy) - for MC Dropout
             if INITIAL_CONFIG['mc_dropout']:
                 aleatoric_entropy_per_sample = compute_aleatoric_entropy(all_preds)
-                fold_aleatoric_entropy = torch.nanmean(aleatoric_entropy_per_sample).item()
+                fold_aleatoric_entropy = aleatoric_entropy_per_sample.mean().item()
                 
+                # Epistemic (Mutual Information)
                 epistemic_entropy_per_sample = compute_mutual_information(all_preds, total_entropy_per_sample)
-                fold_epistemic_entropy = torch.nanmean(epistemic_entropy_per_sample).item()
+                fold_epistemic_entropy = epistemic_entropy_per_sample.mean().item()
             else:
+                # For non-MC dropout, aleatoric = total, epistemic = 0
                 aleatoric_entropy_per_sample = total_entropy_per_sample
                 epistemic_entropy_per_sample = torch.zeros_like(total_entropy_per_sample)
                 fold_aleatoric_entropy = fold_total_entropy
                 fold_epistemic_entropy = 0.0
             
+            # AURC
             fold_aurc = compute_aurc(preds_raw, ground_truth)
             
-            # Explicit Console Print for user visibility
-            print(f"  -> Target: {t_name} | ECE: {fold_ece:.4f} | NLL: {fold_nll:.4f} | Total Ent: {fold_total_entropy:.4f}")
-
+            # Log to W&B
             wandb.log({
-                "ECE": fold_ece, "NLL": fold_nll, "Total_Entropy": fold_total_entropy,
-                "Aleatoric_Entropy": fold_aleatoric_entropy, "Epistemic_Entropy": fold_epistemic_entropy,
+                "ECE": fold_ece,
+                "NLL": fold_nll,
+                "Total_Entropy": fold_total_entropy,
+                "Aleatoric_Entropy": fold_aleatoric_entropy,
+                "Epistemic_Entropy": fold_epistemic_entropy,
                 "AURC": fold_aurc,
             })
             wandb.finish()
 
+            # Save fold-level scalar results
             fold_results = {
-                "fold": fold, "target": t_name, "ECE": fold_ece, "NLL": fold_nll,
-                "Total_Entropy": fold_total_entropy, "Aleatoric_Entropy": fold_aleatoric_entropy,
-                "Epistemic_Entropy": fold_epistemic_entropy, "AURC": fold_aurc,
+                "fold": fold,
+                "target": t_name,
+                "ECE": fold_ece,
+                "NLL": fold_nll,
+                "Total_Entropy": fold_total_entropy,
+                "Aleatoric_Entropy": fold_aleatoric_entropy,
+                "Epistemic_Entropy": fold_epistemic_entropy,
+                "AURC": fold_aurc,
             }
             
             file_prefix = f"{t_name}_" if OOD_DATA else ""
             with open(os.path.join(dir_fold, f"{file_prefix}unc_results.json"), "w") as f:
                 json.dump(fold_results, f)
 
+            # Calucating predictions and correct/incorrect flag
+            preds_class = preds_raw.argmax(dim=1)
             is_correct = (preds_class == ground_truth)
 
+            # Save per-sample data for later plotting
             per_sample_data = {
-                "sample_id": np.array([f"{fold}_{t_name}_{i}" for i in range(len(ground_truth))]), 
+                "sample_id": np.array([f"{fold}_{t_name}_{i}" for i in range(len(ground_truth))]), # Patient + Index
                 "mean_probs": preds_raw.cpu().numpy(),
                 "pred_labels": preds_class.cpu().numpy(),
                 "true_labels": ground_truth.cpu().numpy(),
@@ -282,10 +329,19 @@ def compute_uncertainty_metrics():
                 "epistemic_entropy": epistemic_entropy_per_sample.cpu().numpy(),
             }
             
-            np.savez(os.path.join(dir_fold, f"{file_prefix}per_sample_data.npz"), **per_sample_data)
+            npz_path = os.path.join(dir_fold, f"{file_prefix}per_sample_data.npz")
+            np.savez(npz_path, **per_sample_data)
             
+            # Accumulate for cross-fold summary
             if t_name not in summary_metrics:
-                summary_metrics[t_name] = {"ece": [], "nll": [], "total_entropy": [], "aleatoric_entropy": [], "epistemic_entropy": [], "aurc": []}
+                summary_metrics[t_name] = {
+                    "ece": [],
+                    "nll": [],
+                    "total_entropy": [],
+                    "aleatoric_entropy": [],
+                    "epistemic_entropy": [],
+                    "aurc": [],
+                }
             
             summary_metrics[t_name]["ece"].append(fold_ece)
             summary_metrics[t_name]["nll"].append(fold_nll)
@@ -295,19 +351,30 @@ def compute_uncertainty_metrics():
             summary_metrics[t_name]["aurc"].append(fold_aurc)
 
     # =============================================================
-    # FINAL SUMMARY LOGGING 
+    # FINAL SUMMARY LOGGING (per target if OOD, once if ID)
     # =============================================================
     for t_name, metrics in summary_metrics.items():
         log_name = f"summary_uncertainty_{t_name}" if OOD_DATA else "summary_uncertainty"
         wandb.init(project=project_name, name=log_name)
         
         summary_results = {
-            "final_mean_ECE": mean(metrics["ece"]), "final_ECE_std": stdev(metrics["ece"]) if len(metrics["ece"]) > 1 else 0.0,
-            "final_mean_NLL": mean(metrics["nll"]), "final_NLL_std": stdev(metrics["nll"]) if len(metrics["nll"]) > 1 else 0.0,
-            "final_mean_Total_Entropy": mean(metrics["total_entropy"]), "final_Total_Entropy_std": stdev(metrics["total_entropy"]) if len(metrics["total_entropy"]) > 1 else 0.0,
-            "final_mean_Aleatoric_Entropy": mean(metrics["aleatoric_entropy"]), "final_Aleatoric_Entropy_std": stdev(metrics["aleatoric_entropy"]) if len(metrics["aleatoric_entropy"]) > 1 else 0.0,
-            "final_mean_Epistemic_Entropy": mean(metrics["epistemic_entropy"]), "final_Epistemic_Entropy_std": stdev(metrics["epistemic_entropy"]) if len(metrics["epistemic_entropy"]) > 1 else 0.0,
-            "final_mean_AURC": mean(metrics["aurc"]), "final_AURC_std": stdev(metrics["aurc"]) if len(metrics["aurc"]) > 1 else 0.0,
+            "final_mean_ECE": mean(metrics["ece"]),
+            "final_ECE_std": stdev(metrics["ece"]) if len(metrics["ece"]) > 1 else 0.0,
+            
+            "final_mean_NLL": mean(metrics["nll"]),
+            "final_NLL_std": stdev(metrics["nll"]) if len(metrics["nll"]) > 1 else 0.0,
+            
+            "final_mean_Total_Entropy": mean(metrics["total_entropy"]),
+            "final_Total_Entropy_std": stdev(metrics["total_entropy"]) if len(metrics["total_entropy"]) > 1 else 0.0,
+            
+            "final_mean_Aleatoric_Entropy": mean(metrics["aleatoric_entropy"]),
+            "final_Aleatoric_Entropy_std": stdev(metrics["aleatoric_entropy"]) if len(metrics["aleatoric_entropy"]) > 1 else 0.0,
+            
+            "final_mean_Epistemic_Entropy": mean(metrics["epistemic_entropy"]),
+            "final_Epistemic_Entropy_std": stdev(metrics["epistemic_entropy"]) if len(metrics["epistemic_entropy"]) > 1 else 0.0,
+            
+            "final_mean_AURC": mean(metrics["aurc"]),
+            "final_AURC_std": stdev(metrics["aurc"]) if len(metrics["aurc"]) > 1 else 0.0,
         }
         
         wandb.log(summary_results)
@@ -317,81 +384,6 @@ def compute_uncertainty_metrics():
         with open(os.path.join(SAVE_DIR_METRICS, f"summary_unc_results{file_suffix}.json"), "w") as f:
             json.dump(summary_results, f)
 
-    # =========================================================================
-    # ENSEMBLE CALCULATIONS (OOD DATA ONLY)
-    # =========================================================================
-    if OOD_DATA:
-        print("\n" + "="*70)
-        print("FINAL ENSEMBLE UNCERTAINTY RESULTS (Pooled Passes Across Folds)")
-        print("="*70)
-        
-        for t_name, data in ensemble_tracking.items():
-            if not data["all_passes"]:
-                continue
-                
-            all_passes = data["all_passes"]
-            gt = data["ground_truth"]
-            
-            stacked_probs = torch.stack(all_passes, dim=0) 
-            ensemble_mean_probs = torch.nanmean(stacked_probs, dim=0) # Safe average across all pooled folds
-            ensemble_preds_class = ensemble_mean_probs.argmax(dim=1)
-            
-            ece_metric_ens = MulticlassCalibrationError(num_classes=3, n_bins=15, norm='l1')
-            
-            ens_ece = ece_metric_ens(ensemble_mean_probs, gt).item()
-            ens_nll = compute_nll(ensemble_mean_probs, gt, num_classes=3)
-            ens_aurc = compute_aurc(ensemble_mean_probs, gt)
-            
-            total_entropy_per_sample = compute_total_entropy(ensemble_mean_probs)
-            ens_total_entropy = torch.nanmean(total_entropy_per_sample).item()
-            
-            if INITIAL_CONFIG['mc_dropout']:
-                aleatoric_entropy_per_sample = compute_aleatoric_entropy(all_passes)
-                ens_aleatoric_entropy = torch.nanmean(aleatoric_entropy_per_sample).item()
-                
-                epistemic_entropy_per_sample = compute_mutual_information(all_passes, total_entropy_per_sample)
-                ens_epistemic_entropy = torch.nanmean(epistemic_entropy_per_sample).item()
-            else:
-                aleatoric_entropy_per_sample = total_entropy_per_sample
-                epistemic_entropy_per_sample = torch.zeros_like(total_entropy_per_sample)
-                ens_aleatoric_entropy = ens_total_entropy
-                ens_epistemic_entropy = 0.0
-                
-            print(f"\n--- OOD Patient: {t_name} (Total Pooled Passes: {len(all_passes)}) ---")
-            print(f"ECE               : {ens_ece:.4f}")
-            print(f"NLL               : {ens_nll:.4f}")
-            print(f"AURC              : {ens_aurc:.4f}")
-            print(f"Total Entropy     : {ens_total_entropy:.4f}")
-            print(f"Aleatoric Entropy : {ens_aleatoric_entropy:.4f}")
-            print(f"Epistemic Entropy : {ens_epistemic_entropy:.4f}")
-            
-            ens_results = {
-                "ECE": ens_ece, "NLL": ens_nll, "AURC": ens_aurc,
-                "Total_Entropy": ens_total_entropy, "Aleatoric_Entropy": ens_aleatoric_entropy,
-                "Epistemic_Entropy": ens_epistemic_entropy
-            }
-            
-            with open(os.path.join(SAVE_DIR_METRICS, f"ensemble_unc_results_{t_name}.json"), "w") as f:
-                json.dump(ens_results, f, indent=4)
-                
-            confidences = ensemble_mean_probs.max(dim=1).values.numpy()
-            is_correct = (ensemble_preds_class == gt).numpy()
-            
-            ens_per_sample_data = {
-                "sample_id": np.array([f"ens_{t_name}_{i}" for i in range(len(gt))]),
-                "mean_probs": ensemble_mean_probs.numpy(),
-                "pred_labels": ensemble_preds_class.numpy(),
-                "true_labels": gt.numpy(),
-                "confidence": confidences,
-                "is_correct": is_correct,
-                "total_entropy": total_entropy_per_sample.numpy(),
-                "aleatoric_entropy": aleatoric_entropy_per_sample.numpy(),
-                "epistemic_entropy": epistemic_entropy_per_sample.numpy(),
-            }
-            
-            np.savez(os.path.join(SAVE_DIR_METRICS, f"ensemble_per_sample_data_{t_name}.npz"), **ens_per_sample_data)
-            
-        print("="*70 + "\n")
 
 if __name__ == "__main__":
     compute_uncertainty_metrics()

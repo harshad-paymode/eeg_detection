@@ -83,14 +83,6 @@ def compute_prediction_metrics():
     else:
         target_names = None
 
-    # =========================================================================
-    # --- NEW ADDITION: Setup variable to track predictions for Ensemble ---
-    ensemble_tracking = {}
-    if OOD_DATA:
-        for t in target_names:
-            ensemble_tracking[t] = {"probs": [], "ground_truth": None}
-    # =========================================================================
-
     # Dictionary to hold cross-fold metrics per target (patient or ID fold)
     summary_metrics = {}
 
@@ -193,21 +185,6 @@ def compute_prediction_metrics():
             preds_raw, preds = preds_raw.to(device), preds.to(device)
             ground_truth = torch.tensor([data.y.int().item() for data in dataset]).to(device)
 
-            # =========================================================================
-            # --- NEW ADDITION: Store predictions and ground truth for Ensemble ---
-            if OOD_DATA:
-                if INITIAL_CONFIG['mc_dropout']:
-                    ens_probs = preds_raw.detach().cpu()
-                else:
-                    ens_probs = torch.nn.functional.softmax(preds_raw, dim=1).detach().cpu()
-                    
-                ensemble_tracking[t_name]["probs"].append(ens_probs)
-                
-                # Ground truth is constant per patient, so we only need to store it once
-                if ensemble_tracking[t_name]["ground_truth"] is None:
-                    ensemble_tracking[t_name]["ground_truth"] = ground_truth.detach().cpu()
-            # =========================================================================
-
             conf_matrix = conf_matrix_metric(preds, ground_truth).cpu().int().numpy()
             specificity = specificity_metric(preds, ground_truth).item()
             recall = recall_metric(preds, ground_truth).item()
@@ -267,61 +244,6 @@ def compute_prediction_metrics():
         np.save(os.path.join(SAVE_DIR_METRICS, f"summary_conf_matrix{file_suffix}.npy"), metrics["conf_matrix"])
         with open(os.path.join(SAVE_DIR_METRICS, f"summary_results{file_suffix}.json"), "w") as f:
             json.dump(summary_results, f)
-
-    # =========================================================================
-    # --- NEW ADDITION: Calculate and Print Final ENSEMBLE Results ---
-    if OOD_DATA:
-        print("\n" + "="*70)
-        print("FINAL ENSEMBLE RESULTS (Averaged Probabilities Across Folds)")
-        print("="*70)
-        
-        for t_name, data in ensemble_tracking.items():
-            if not data["probs"]:
-                continue
-                
-            # Stack and average probabilities across all folds
-            stacked_probs = torch.stack(data["probs"], dim=0) # Shape: [num_folds, num_samples, 3]
-            ensemble_mean_probs = stacked_probs.mean(dim=0)   # Shape: [num_samples, 3]
-            ensemble_preds_class = ensemble_mean_probs.argmax(dim=1)
-            gt = data["ground_truth"]
-            
-            # Setup metrics
-            conf_matrix_metric_ens = MulticlassConfusionMatrix(3)
-            specificity_metric_ens = Specificity("multiclass", num_classes=3)
-            recall_metric_ens = Recall("multiclass", num_classes=3)
-            f1_metric_ens = F1Score("multiclass", num_classes=3)
-            auroc_metric_ens = AUROC("multiclass", num_classes=3)
-            
-            # Calculate metrics
-            ens_conf_matrix = conf_matrix_metric_ens(ensemble_preds_class, gt).int().numpy()
-            ens_spec = specificity_metric_ens(ensemble_preds_class, gt).item()
-            ens_recall = recall_metric_ens(ensemble_preds_class, gt).item()
-            ens_f1 = f1_metric_ens(ensemble_preds_class, gt).item()
-            ens_auroc = auroc_metric_ens(ensemble_mean_probs, gt).item()
-            ens_bacc = balanced_accuracy_score(gt.numpy(), ensemble_preds_class.numpy())
-            
-            print(f"\n--- OOD Patient: {t_name} ---")
-            print(f"AUROC             : {ens_auroc:.4f}")
-            print(f"F1-Score          : {ens_f1:.4f}")
-            print(f"Sensitivity       : {ens_recall:.4f}")
-            print(f"Specificity       : {ens_spec:.4f}")
-            print(f"Balanced Accuracy : {ens_bacc:.4f}")
-            print(f"Confusion Matrix  :\n{ens_conf_matrix}")
-            
-            # Save ensemble results to designated files
-            ens_results = {
-                "AUROC": ens_auroc,
-                "F1-score": ens_f1,
-                "Sensitivity": ens_recall,
-                "Specificity": ens_spec,
-                "Balanced Accuracy": ens_bacc
-            }
-            
-            np.save(os.path.join(SAVE_DIR_METRICS, f"ensemble_conf_matrix_{t_name}.npy"), ens_conf_matrix)
-            with open(os.path.join(SAVE_DIR_METRICS, f"ensemble_results_{t_name}.json"), "w") as f:
-                json.dump(ens_results, f, indent=4)
-        print("="*70 + "\n")
-    # =========================================================================
 
 if __name__ == "__main__":
     compute_prediction_metrics()
