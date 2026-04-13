@@ -235,7 +235,7 @@ def compute_feature_importances(args):
                         pyg_batch=batch_unpacked.batch
                     )
 
-                    # BUG FIX: Pure PyTorch tensor, no .numpy() conversions
+                    # Pure PyTorch tensor, no .numpy() conversions
                     node_mask_base = explanation.node_mask.detach().cpu()
                     
                     # 4. Save dictionary
