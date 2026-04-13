@@ -91,7 +91,7 @@ def compute_feature_importances(args):
             hidden_dim=hidden_dim,
             n_heads=n_heads,
             slope=slope,
-            dropout_on=False,
+            dropout_on=False,  
             pooling_method=pooling_method,
             activation=activation,
             norm_method=norm_method,
@@ -104,7 +104,7 @@ def compute_feature_importances(args):
         
         # Process each target (for OOD: multiple targets; for ID: single target)
         for t_idx, (t_name, t_dir, log_name) in enumerate(zip(current_targets, current_dirs, log_names)):
-            #collect all samples into this list for mc dropout
+            # collect all samples into this list for mc dropout
             all_samples = []
             print(f"\nTarget: {t_name}")
             
@@ -114,10 +114,9 @@ def compute_feature_importances(args):
                 batch_size=1,
                 shuffle=False,
                 drop_last=False,
-                num_workers=2,
-                prefetch_factor=20,
+                num_workers=0,
+                prefetch_factor=None,
             )
-            
             
             gnn_explainer = GNNExplainer(epochs=50, lr=0.01)
             config = ModelConfig(
@@ -155,16 +154,18 @@ def compute_feature_importances(args):
                     )
                     prediction = torch.argmax(explanation.prediction)
                     
-                    sum_masks += explanation.node_mask
+                    # BUG FIX: Added .detach() to prevent memory leak
+                    sum_masks += explanation.node_mask.detach()
                     
-                    if batch_unpacked.y == 0 and prediction == 0:
-                        preictal_masks += explanation.node_mask
+                    # BUG FIX: Added .item() to safely check condition
+                    if batch_unpacked.y.item() == 0 and prediction.item() == 0:
+                        preictal_masks += explanation.node_mask.detach()
                         preictal_cntr += 1
-                    elif batch_unpacked.y == 1 and prediction == 1:
-                        ictal_masks += explanation.node_mask
+                    elif batch_unpacked.y.item() == 1 and prediction.item() == 1:
+                        ictal_masks += explanation.node_mask.detach()
                         ictal_cntr += 1
-                    elif batch_unpacked.y == 2 and prediction == 2:
-                        interictal_masks += explanation.node_mask
+                    elif batch_unpacked.y.item() == 2 and prediction.item() == 2:
+                        interictal_masks += explanation.node_mask.detach()
                         interictal_cntr += 1
                     
                     batch_count += 1
@@ -215,7 +216,7 @@ def compute_feature_importances(args):
                 print(f"  Baseline processing complete for {t_name} ({batch_count} batches)")
             
             # ================================================================
-            # MC DROPOUT MODE: Save mask for every sample seperately
+            # MC DROPOUT MODE: Save mask for every sample separately
             # ================================================================
             else:
                 save_path_fold = os.path.join(save_dir_importances, f"fold_{i}")
@@ -224,21 +225,24 @@ def compute_feature_importances(args):
                 sample_counter = 0
                 
                 for batch_idx, batch in enumerate(loader):
-                    batch = batch.to(device)
+                    batch_unpacked = batch.to(device)
                     
                     # 1. Run Explainer EXACTLY ONCE
                     explanation = explainer(
-                        x=batch.x, edge_index=batch.edge_index, 
-                        target=batch.y, pyg_batch=batch.batch
+                        x=batch_unpacked.x, 
+                        edge_index=batch_unpacked.edge_index, 
+                        target=batch_unpacked.y, 
+                        pyg_batch=batch_unpacked.batch
                     )
-                    node_mask = explanation.node_mask.detach().cpu()
-                    if node_mask.dim() > 1: node_mask = node_mask.mean(dim=1)
-                    node_mask_base = node_mask.numpy()
-                
+
+                    # BUG FIX: Pure PyTorch tensor, no .numpy() conversions
+                    node_mask_base = explanation.node_mask.detach().cpu()
                     
-                    # 4. Save
+                    # 4. Save dictionary
                     sample_data = {
                         "sample_id": f"{fold}_{t_name}_{batch_idx}",
+                        "true_label": batch_unpacked.y.item(),
+                        "pred_label": torch.argmax(explanation.prediction).item(),
                         "node_mask_base": node_mask_base,
                     }
                     

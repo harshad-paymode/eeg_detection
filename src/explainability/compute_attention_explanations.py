@@ -108,8 +108,8 @@ def compute_attention_explanations(args):
                 batch_size=1,
                 shuffle=False,
                 drop_last=False,
-                num_workers=2,
-                prefetch_factor=20,
+                num_workers=0,          # FIX: Prevent IPC deadlocks
+                prefetch_factor=None,   # FIX: Must be None if num_workers=0
             )
             
             config = ModelConfig(
@@ -145,39 +145,42 @@ def compute_attention_explanations(args):
                         pyg_batch=batch.batch,
                     )
                     
+                    # FIX: Safely extract scalars
+                    prediction = torch.argmax(explanation.prediction).item()
+                    batch_y = batch.y.item()
+                    
                     for edge_idx in range(explanation.edge_index.size(1)):
                         edge = explanation.edge_index[:, edge_idx].tolist()
                         edge.sort()
                         edge = str(tuple(edge))
                         edge_mask = explanation.edge_mask[edge_idx].item()
-                        prediction = torch.argmax(explanation.prediction)
                         
                         if edge in edge_connection_dict_all.keys():
                             edge_connection_dict_all[edge] += edge_mask
                         else:
                             edge_connection_dict_all[edge] = edge_mask
                         
-                        if batch.y == 0 and prediction == 0:
+                        if batch_y == 0 and prediction == 0:
                             if edge in edge_connection_dict_preictal.keys():
                                 edge_connection_dict_preictal[edge] += edge_mask
                             else:
                                 edge_connection_dict_preictal[edge] = edge_mask
-                        elif batch.y == 1 and prediction == 1:
+                        elif batch_y == 1 and prediction == 1:
                             if edge in edge_connection_dict_ictal.keys():
                                 edge_connection_dict_ictal[edge] += edge_mask
                             else:
                                 edge_connection_dict_ictal[edge] = edge_mask
-                        elif batch.y == 2 and prediction == 2:
+                        elif batch_y == 2 and prediction == 2:
                             if edge in edge_connection_dict_interictal.keys():
                                 edge_connection_dict_interictal[edge] += edge_mask
                             else:
                                 edge_connection_dict_interictal[edge] = edge_mask
                     
-                    if batch.y == 0 and prediction == 0:
+                    if batch_y == 0 and prediction == 0:
                         preictal_cntr += 1
-                    elif batch.y == 1 and prediction == 1:
+                    elif batch_y == 1 and prediction == 1:
                         ictal_cntr += 1
-                    elif batch.y == 2 and prediction == 2:
+                    elif batch_y == 2 and prediction == 2:
                         interictal_cntr += 1
                     
                     batch_count += 1
@@ -245,12 +248,17 @@ def compute_attention_explanations(args):
                         x=batch.x, edge_index=batch.edge_index, 
                         target=batch.y, pyg_batch=batch.batch
                     )
-                    edge_mask_base = explanation.edge_mask.detach().cpu().numpy()
                     
-                    # 4. Save
+                    # FIX: Extract edge_index so downstream plotting script knows which edges to draw
+                    edge_mask_base = explanation.edge_mask.detach().cpu().numpy()
+                    edge_index = explanation.edge_index.detach().cpu().numpy()
+                    
+                    # Save true_label and edge_index for downstream parsing
                     sample_data = {
-                    "sample_id": f"{fold}_{t_name}_{batch_idx}",
-                    "edge_mask_base": edge_mask_base.tolist(),
+                        "sample_id": f"{fold}_{t_name}_{batch_idx}",
+                        "true_label": batch.y.item(),
+                        "edge_index": edge_index.tolist(),
+                        "edge_mask_base": edge_mask_base.tolist(),
                     }
                     
                     all_samples.append(sample_data)
