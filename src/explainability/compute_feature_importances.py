@@ -91,7 +91,7 @@ def compute_feature_importances(args):
             hidden_dim=hidden_dim,
             n_heads=n_heads,
             slope=slope,
-            dropout_on=mc_dropout,
+            dropout_on=False,
             pooling_method=pooling_method,
             activation=activation,
             norm_method=norm_method,
@@ -114,8 +114,8 @@ def compute_feature_importances(args):
                 batch_size=1,
                 shuffle=False,
                 drop_last=False,
-                num_workers=2 if not mc_dropout else 0,
-                prefetch_factor=20 if not mc_dropout else None,
+                num_workers=2,
+                prefetch_factor=20,
             )
             
             
@@ -215,7 +215,7 @@ def compute_feature_importances(args):
                 print(f"  Baseline processing complete for {t_name} ({batch_count} batches)")
             
             # ================================================================
-            # MC DROPOUT MODE: Uncertainty-Calibrated Explanations
+            # MC DROPOUT MODE: Save mask for every sample seperately
             # ================================================================
             else:
                 save_path_fold = os.path.join(save_dir_importances, f"fold_{i}")
@@ -227,7 +227,6 @@ def compute_feature_importances(args):
                     batch = batch.to(device)
                     
                     # 1. Run Explainer EXACTLY ONCE
-                    model.eval()
                     explanation = explainer(
                         x=batch.x, edge_index=batch.edge_index, 
                         target=batch.y, pyg_batch=batch.batch
@@ -235,47 +234,15 @@ def compute_feature_importances(args):
                     node_mask = explanation.node_mask.detach().cpu()
                     if node_mask.dim() > 1: node_mask = node_mask.mean(dim=1)
                     node_mask_base = node_mask.numpy()
-                    
-                    # 2. Run Model 50 times for Predictive Uncertainty
-                    
-                    all_preds = []
-                    model.train()
-                    for m in model.modules():
-                        if isinstance(m, (torch.nn.BatchNorm1d, torch_geometric.nn.norm.BatchNorm)):
-                            m.eval()
-                    with torch.no_grad():
-                        for t in range(50):
-                            out = model(batch.x, batch.edge_index, batch.batch)
-                            preds = torch.nn.functional.softmax(out, dim=1)
-                            all_preds.append(preds.detach().cpu())
-                            
-                    all_preds = torch.stack(all_preds, dim=0).squeeze(1) # Shape: [50, 3]
-                    mean_probs = all_preds.mean(dim=0, keepdim=True)     # Shape: [1, 3]
-                    pred_label_mode = mean_probs.argmax(dim=1).item()    # Extract single scalar label
-
-                    # 3. Calculate Entropies (Exact match to batched dimensions & clamp)
-                    predictive_entropy = -torch.sum(mean_probs * torch.log(mean_probs + 1e-10), dim=1).item()
-                    entropies = -torch.sum(all_preds * torch.log(all_preds + 1e-10), dim=1)
-                    aleatoric_entropy = entropies.mean().item()
-
-                    # Enforce strict positive clamp
-                    epistemic_entropy = max(0.0, predictive_entropy - aleatoric_entropy)
-
+                
                     
                     # 4. Save
                     sample_data = {
                         "sample_id": f"{fold}_{t_name}_{batch_idx}",
-                        "true_label": batch.y.item(),
-                        "pred_label_mode": pred_label_mode,
                         "node_mask_base": node_mask_base,
-                        "mean_probs": mean_probs.numpy(),
-                        "predictive_entropy": predictive_entropy,
-                        "aleatoric_entropy": aleatoric_entropy,
-                        "epistemic_entropy": epistemic_entropy
                     }
                     
                     all_samples.append(sample_data)
-                    
                     
                     sample_counter += 1
                     if sample_counter % 100 == 0:
