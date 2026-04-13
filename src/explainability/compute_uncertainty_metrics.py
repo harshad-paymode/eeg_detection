@@ -29,14 +29,14 @@ parser.add_argument("--checkpoint_dir", type=str, default="saved_models/")
 parser.add_argument("--test_data_dir", type=str, default="test_data/")
 parser.add_argument("--save_dir_metrics", type=str, default="save_unc_metrics/")
 parser.add_argument("--mc_dropout", action="store_true", default=False)
-parser.add_argument("--temperature_path", type=str, default="temperatures/")
+# parser.add_argument("--temperature_path", type=str, default="temperatures/")
 parser.add_argument("--ood_data", action="store_true", default=False)
 args = parser.parse_args()
 
 CHECKPOINT_DIR = args.checkpoint_dir
 TEST_DATA_DIR = args.test_data_dir
 SAVE_DIR_METRICS = args.save_dir_metrics
-TEMPERATURES_PATH = args.temperature_path
+# TEMPERATURES_PATH = args.temperature_path
 OOD_DATA = args.ood_data
 
 INITIAL_CONFIG = dict(
@@ -112,10 +112,10 @@ def compute_uncertainty_metrics():
     fold_list = [f for f in os.listdir(CHECKPOINT_DIR) if f.startswith("fold_")]
     fold_list.sort()
     
-    if INITIAL_CONFIG['mc_dropout']:
-        temp_file_path = os.path.join(TEMPERATURES_PATH, "optimal_temperatures.json")
-        with open(temp_file_path, "r") as f:
-            optimal_temperatures = json.load(f)
+    # if INITIAL_CONFIG['mc_dropout']:
+    #     temp_file_path = os.path.join(TEMPERATURES_PATH, "optimal_temperatures.json")
+    #     with open(temp_file_path, "r") as f:
+    #         optimal_temperatures = json.load(f)
 
     if OOD_DATA:
         target_names = sorted([p for p in os.listdir(TEST_DATA_DIR) if os.path.isdir(os.path.join(TEST_DATA_DIR, p))])
@@ -165,8 +165,8 @@ def compute_uncertainty_metrics():
             map_location=device,
         )
         
-        if INITIAL_CONFIG['mc_dropout']:
-            model.temperature = optimal_temperatures[fold]
+        # if INITIAL_CONFIG['mc_dropout']:
+        #     model.temperature = optimal_temperatures[fold]
 
         wandb_logger = pl.loggers.WandbLogger(log_model=False)
         trainer = pl.Trainer(
