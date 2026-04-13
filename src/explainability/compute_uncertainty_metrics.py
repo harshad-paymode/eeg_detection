@@ -52,45 +52,40 @@ INITIAL_CONFIG = dict(
     weight_decay=0.0078
 )
 
-
 def compute_aurc(probs, targets):
     """Computes Area Under the Risk-Coverage (AURC) directly on GPU."""
     confidences, preds = torch.max(probs, dim=1)
     errors = (preds != targets).float()
     
-    # Sort by confidence descending
     sorted_indices = torch.argsort(confidences, descending=True)
     sorted_errors = errors[sorted_indices]
     
-    # Calculate cumulative risk
     n_samples = len(targets)
     risks = torch.cumsum(sorted_errors, dim=0) / torch.arange(1, n_samples + 1, device=probs.device).float()
     
-    # Area under curve calculation
     aurc = torch.sum(risks) / n_samples
     return aurc.item()
 
-
 def compute_nll(probs, targets, num_classes=3):
-    """Computes Negative Log-Likelihood (NLL). Requires Softmaxed Probs!"""
-    log_probs = torch.log(probs + 1e-10) 
-    nll = -log_probs[torch.arange(len(targets)), targets].mean()
-    return nll.item()
-
+    """Computes Negative Log-Likelihood (NLL). Clamped to prevent NaN."""
+    probs = torch.clamp(probs, min=1e-7, max=1.0)
+    log_probs = torch.log(probs) 
+    nll_vals = -log_probs[torch.arange(len(targets)), targets]
+    return torch.nanmean(nll_vals).item()
 
 def compute_total_entropy(probs):
-    """Computes Predictive Entropy (Total Entropy). Requires Softmaxed Probs!"""
-    entropy = -torch.sum(probs * torch.log(probs + 1e-10), dim=1) 
+    """Computes Predictive Entropy. Clamped to prevent NaN."""
+    probs = torch.clamp(probs, min=1e-7, max=1.0)
+    entropy = -torch.sum(probs * torch.log(probs), dim=1) 
     return entropy
 
-
 def compute_aleatoric_entropy(all_probs_list):
-    """Computes Aleatoric Entropy from MC dropout stochastic probability passes."""
+    """Computes Aleatoric Entropy from MC dropout stochastic passes."""
     stacked = torch.stack(all_probs_list, dim=0)
-    entropies = -torch.sum(stacked * torch.log(stacked + 1e-10), dim=2) 
-    aleatoric = entropies.mean(dim=0) 
+    stacked = torch.clamp(stacked, min=1e-7, max=1.0)
+    entropies = -torch.sum(stacked * torch.log(stacked), dim=2) 
+    aleatoric = torch.nanmean(entropies, dim=0) 
     return aleatoric
-
 
 def compute_mutual_information(all_probs_list, total_entropy):
     """Computes Epistemic Uncertainty (Mutual Information)."""
@@ -121,15 +116,13 @@ def compute_uncertainty_metrics():
         temp_file_path = os.path.join(TEMPERATURES_PATH, "optimal_temperatures.json")
         with open(temp_file_path, "r") as f:
             optimal_temperatures = json.load(f)
-        print(f"Loaded optimal temperatures from {temp_file_path}")
 
-    # Determine targets once
     if OOD_DATA:
         target_names = sorted([p for p in os.listdir(TEST_DATA_DIR) if os.path.isdir(os.path.join(TEST_DATA_DIR, p))])
     else:
         target_names = None
 
-    # --- Setup variable to track passes for Ensemble ---
+    # Tracking variable for Ensemble
     ensemble_tracking = {}
     if OOD_DATA:
         for t in target_names:
@@ -138,7 +131,8 @@ def compute_uncertainty_metrics():
     summary_metrics = {}
 
     for n, fold in enumerate(fold_list):
-        print(f"\nEvaluating Fold {n} | MC Dropout: {INITIAL_CONFIG['mc_dropout']}")
+        print(f"\n{'='*50}")
+        print(f"Evaluating Fold {n} | MC Dropout: {INITIAL_CONFIG['mc_dropout']}")
         
         if OOD_DATA:
             current_targets = target_names
@@ -183,7 +177,6 @@ def compute_uncertainty_metrics():
         dir_fold = os.path.join(SAVE_DIR_METRICS, f"fold_{n}")
         os.makedirs(dir_fold, exist_ok=True)
 
-        # Evaluate Each Target
         for t_name, t_dir, log_name in zip(current_targets, current_dirs, log_names):
             wandb.init(project=project_name, name=log_name, config=INITIAL_CONFIG)
             
@@ -211,31 +204,24 @@ def compute_uncertainty_metrics():
                         pass_preds.append(out.detach().cpu())
                         
                     preds = torch.cat(pass_preds, dim=0)
-                    
                     if INITIAL_CONFIG['mc_dropout']:
                         preds = torch.nn.functional.softmax(preds, dim=1)
-                    
                     all_preds.append(preds)
 
-            # =========================================================================
-            # CRITICAL BUG FIX: Baseline must be Softmaxed here to calculate Entropies!
-            # =========================================================================
             if INITIAL_CONFIG['mc_dropout']:
-                preds_raw = torch.stack(all_preds).mean(dim=0)
+                preds_raw = torch.nanmean(torch.stack(all_preds), dim=0)
                 preds_class = preds_raw.argmax(dim=1)
             else:
-                preds_raw = torch.nn.functional.softmax(all_preds[0], dim=1) # <- FIXED
+                preds_raw = torch.nn.functional.softmax(all_preds[0], dim=1) 
                 preds_class = preds_raw.argmax(dim=1)
 
             preds_raw, preds_class = preds_raw.to(device), preds_class.to(device)
             ground_truth = torch.tensor([data.y.int().item() for data in dataset]).to(device)
 
-            # Store passes and ground truth for Ensemble OOD Analysis
             if OOD_DATA:
                 if INITIAL_CONFIG['mc_dropout']:
                     ensemble_tracking[t_name]["all_passes"].extend([p.detach().cpu() for p in all_preds])
                 else:
-                    # Append the correctly softmaxed baseline probabilities
                     ensemble_tracking[t_name]["all_passes"].append(preds_raw.detach().cpu())
                     
                 if ensemble_tracking[t_name]["ground_truth"] is None:
@@ -246,14 +232,14 @@ def compute_uncertainty_metrics():
             fold_nll = compute_nll(preds_raw, ground_truth, num_classes=3)
             
             total_entropy_per_sample = compute_total_entropy(preds_raw)
-            fold_total_entropy = total_entropy_per_sample.mean().item()
+            fold_total_entropy = torch.nanmean(total_entropy_per_sample).item()
             
             if INITIAL_CONFIG['mc_dropout']:
                 aleatoric_entropy_per_sample = compute_aleatoric_entropy(all_preds)
-                fold_aleatoric_entropy = aleatoric_entropy_per_sample.mean().item()
+                fold_aleatoric_entropy = torch.nanmean(aleatoric_entropy_per_sample).item()
                 
                 epistemic_entropy_per_sample = compute_mutual_information(all_preds, total_entropy_per_sample)
-                fold_epistemic_entropy = epistemic_entropy_per_sample.mean().item()
+                fold_epistemic_entropy = torch.nanmean(epistemic_entropy_per_sample).item()
             else:
                 aleatoric_entropy_per_sample = total_entropy_per_sample
                 epistemic_entropy_per_sample = torch.zeros_like(total_entropy_per_sample)
@@ -262,6 +248,9 @@ def compute_uncertainty_metrics():
             
             fold_aurc = compute_aurc(preds_raw, ground_truth)
             
+            # Explicit Console Print for user visibility
+            print(f"  -> Target: {t_name} | ECE: {fold_ece:.4f} | NLL: {fold_nll:.4f} | Total Ent: {fold_total_entropy:.4f}")
+
             wandb.log({
                 "ECE": fold_ece, "NLL": fold_nll, "Total_Entropy": fold_total_entropy,
                 "Aleatoric_Entropy": fold_aleatoric_entropy, "Epistemic_Entropy": fold_epistemic_entropy,
@@ -293,10 +282,8 @@ def compute_uncertainty_metrics():
                 "epistemic_entropy": epistemic_entropy_per_sample.cpu().numpy(),
             }
             
-            npz_path = os.path.join(dir_fold, f"{file_prefix}per_sample_data.npz")
-            np.savez(npz_path, **per_sample_data)
+            np.savez(os.path.join(dir_fold, f"{file_prefix}per_sample_data.npz"), **per_sample_data)
             
-            # Accumulate for cross-fold summary
             if t_name not in summary_metrics:
                 summary_metrics[t_name] = {"ece": [], "nll": [], "total_entropy": [], "aleatoric_entropy": [], "epistemic_entropy": [], "aurc": []}
             
@@ -308,7 +295,7 @@ def compute_uncertainty_metrics():
             summary_metrics[t_name]["aurc"].append(fold_aurc)
 
     # =============================================================
-    # FINAL SUMMARY LOGGING (per target if OOD, once if ID)
+    # FINAL SUMMARY LOGGING 
     # =============================================================
     for t_name, metrics in summary_metrics.items():
         log_name = f"summary_uncertainty_{t_name}" if OOD_DATA else "summary_uncertainty"
@@ -345,8 +332,8 @@ def compute_uncertainty_metrics():
             all_passes = data["all_passes"]
             gt = data["ground_truth"]
             
-            stacked_probs = torch.stack(all_passes, dim=0) # [num_total_passes, N, 3]
-            ensemble_mean_probs = stacked_probs.mean(dim=0) # [N, 3]
+            stacked_probs = torch.stack(all_passes, dim=0) 
+            ensemble_mean_probs = torch.nanmean(stacked_probs, dim=0) # Safe average across all pooled folds
             ensemble_preds_class = ensemble_mean_probs.argmax(dim=1)
             
             ece_metric_ens = MulticlassCalibrationError(num_classes=3, n_bins=15, norm='l1')
@@ -356,14 +343,14 @@ def compute_uncertainty_metrics():
             ens_aurc = compute_aurc(ensemble_mean_probs, gt)
             
             total_entropy_per_sample = compute_total_entropy(ensemble_mean_probs)
-            ens_total_entropy = total_entropy_per_sample.mean().item()
+            ens_total_entropy = torch.nanmean(total_entropy_per_sample).item()
             
             if INITIAL_CONFIG['mc_dropout']:
                 aleatoric_entropy_per_sample = compute_aleatoric_entropy(all_passes)
-                ens_aleatoric_entropy = aleatoric_entropy_per_sample.mean().item()
+                ens_aleatoric_entropy = torch.nanmean(aleatoric_entropy_per_sample).item()
                 
                 epistemic_entropy_per_sample = compute_mutual_information(all_passes, total_entropy_per_sample)
-                ens_epistemic_entropy = epistemic_entropy_per_sample.mean().item()
+                ens_epistemic_entropy = torch.nanmean(epistemic_entropy_per_sample).item()
             else:
                 aleatoric_entropy_per_sample = total_entropy_per_sample
                 epistemic_entropy_per_sample = torch.zeros_like(total_entropy_per_sample)
