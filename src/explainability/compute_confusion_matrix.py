@@ -444,7 +444,7 @@ def compute_prediction_metrics():
             ground_truth = torch.tensor([data.y.int().item() for data in dataset]).to(device)
 
             # =========================================================================
-            # --- NEW ADDITION: Store predictions and ground truth for Ensemble ---
+            # ---Store predictions and ground truth for Ensemble ---
             if OOD_DATA:
                 if INITIAL_CONFIG['mc_dropout']:
                     ens_probs = preds_raw.detach().cpu()
