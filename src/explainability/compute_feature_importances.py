@@ -91,7 +91,7 @@ def compute_feature_importances(args):
             hidden_dim=hidden_dim,
             n_heads=n_heads,
             slope=slope,
-            dropout_on=False,  
+            dropout_on=False,
             pooling_method=pooling_method,
             activation=activation,
             norm_method=norm_method,
@@ -217,6 +217,8 @@ def compute_feature_importances(args):
             
             # ================================================================
             # MC DROPOUT MODE: Save mask for every sample separately
+            # 1. Here only the masks are calculated for MC dropout
+            # 2. The predictions will be cross referenced from compute_uncertainty_matrix results using sample id
             # ================================================================
             else:
                 save_path_fold = os.path.join(save_dir_importances, f"fold_{i}")

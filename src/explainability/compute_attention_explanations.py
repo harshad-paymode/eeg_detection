@@ -233,6 +233,8 @@ def compute_attention_explanations(args):
             
             # ================================================================
             # MC DROPOUT MODE: Save mask for every sample seperately
+            # 1. Here only the masks are calculated for MC dropout
+            # 2. The predictions will be cross referenced from compute_uncertainty_matrix results using sample id
             # ================================================================
    
             else:        
@@ -257,6 +259,7 @@ def compute_attention_explanations(args):
                     sample_data = {
                         "sample_id": f"{fold}_{t_name}_{batch_idx}",
                         "true_label": batch.y.item(),
+                        "prediction": torch.argmax(explanation.prediction).item(),
                         "edge_index": edge_index.tolist(),
                         "edge_mask_base": edge_mask_base.tolist(),
                     }
