@@ -118,7 +118,7 @@ def compute_feature_importances(args):
                 prefetch_factor=None,
             )
             
-            gnn_explainer = GNNExplainer(epochs=50, lr=0.2)
+            gnn_explainer = GNNExplainer(epochs=50, lr=0.1)
             config = ModelConfig(
                 "multiclass_classification", task_level="graph", return_type="raw"
             )
