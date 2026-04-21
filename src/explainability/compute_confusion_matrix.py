@@ -147,7 +147,7 @@ def compute_prediction_metrics():
             dataset = GraphDataset(t_dir)
             loader = DataLoader(dataset, batch_size=1024, shuffle=False)
 
-            # Set exactly the modes we want
+            # Setting the modes
             if INITIAL_CONFIG['mc_dropout']:
                 model.train()
                 for m in model.modules():

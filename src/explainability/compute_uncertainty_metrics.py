@@ -58,11 +58,11 @@ def compute_aurc(probs, targets):
     confidences, preds = torch.max(probs, dim=1)
     errors = (preds != targets).float()
     
-    # Sort by confidence descending
+    # Sorting by confidence descending
     sorted_indices = torch.argsort(confidences, descending=True)
     sorted_errors = errors[sorted_indices]
     
-    # Calculate cumulative risk
+    # Calculating cumulative risk
     n_samples = len(targets)
     risks = torch.cumsum(sorted_errors, dim=0) / torch.arange(1, n_samples + 1, device=probs.device).float()
     
@@ -75,7 +75,7 @@ def compute_nll(probs, targets, num_classes=3):
     """Computes Negative Log-Likelihood (NLL)."""
     # probs shape: (N, num_classes)
     # targets shape: (N,)
-    log_probs = torch.log(probs + 1e-10)  # Add small epsilon to avoid log(0)
+    log_probs = torch.log(probs + 1e-10)  # Adding small epsilon to avoid log(0)
     nll = -log_probs[torch.arange(len(targets)), targets].mean()
     return nll.item()
 
@@ -100,7 +100,7 @@ def compute_aleatoric_entropy(all_probs_list):
     # Stack to (num_passes, N, num_classes)
     stacked = torch.stack(all_probs_list, dim=0)
     
-    # Compute entropy for each pass, then average
+    # Computing entropy for each pass, then average
     # entropy shape per pass: (N,)
     entropies = -torch.sum(stacked * torch.log(stacked + 1e-10), dim=2)  # (num_passes, N)
     aleatoric = entropies.mean(dim=0)  # (N,)
@@ -161,7 +161,7 @@ def compute_uncertainty_metrics():
     for n, fold in enumerate(fold_list):
         print(f"Evaluating Fold {n} | MC Dropout: {INITIAL_CONFIG['mc_dropout']}")
         
-        # 1. Determine exact test targets for this fold
+        # Determine exact test targets for this fold
         if OOD_DATA:
             current_targets = target_names
             current_dirs = [os.path.join(TEST_DATA_DIR, p) for p in current_targets]
