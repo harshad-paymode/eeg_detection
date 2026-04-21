@@ -131,9 +131,9 @@ def compute_feature_importances(args):
                 edge_mask_type="object",
             )
             
-            # ================================================================
+           
             # BASELINE MODE: Global Averaging
-            # ================================================================
+           
             if not mc_dropout:
                 sum_masks = torch.zeros((18, 10)).to(device)
                 interictal_masks = torch.zeros((18, 10)).to(device)
@@ -154,10 +154,9 @@ def compute_feature_importances(args):
                     )
                     prediction = torch.argmax(explanation.prediction)
                     
-                    # BUG FIX: Added .detach() to prevent memory leak
+                   
                     sum_masks += explanation.node_mask.detach()
                     
-                    # BUG FIX: Added .item() to safely check condition
                     if batch_unpacked.y.item() == 0 and prediction.item() == 0:
                         preictal_masks += explanation.node_mask.detach()
                         preictal_cntr += 1
@@ -215,11 +214,11 @@ def compute_feature_importances(args):
                 
                 print(f"  Baseline processing complete for {t_name} ({batch_count} batches)")
             
-            # ================================================================
+           
             # MC DROPOUT MODE: Save mask for every sample separately
             # 1. Here only the masks are calculated for MC dropout
             # 2. The predictions will be cross referenced from compute_uncertainty_matrix results using sample id
-            # ================================================================
+           
             else:
                 save_path_fold = os.path.join(save_dir_importances, f"fold_{i}")
                 os.makedirs(save_path_fold, exist_ok=True)
@@ -229,7 +228,7 @@ def compute_feature_importances(args):
                 for batch_idx, batch in enumerate(loader):
                     batch_unpacked = batch.to(device)
                     
-                    # 1. Run Explainer EXACTLY ONCE
+                    # Run Explainer EXACTLY ONCE
                     explanation = explainer(
                         x=batch_unpacked.x, 
                         edge_index=batch_unpacked.edge_index, 
@@ -237,10 +236,10 @@ def compute_feature_importances(args):
                         pyg_batch=batch_unpacked.batch
                     )
 
-                    # Pure PyTorch tensor, no .numpy() conversions
+                  
                     node_mask_base = explanation.node_mask.detach().cpu()
                     
-                    # 4. Save dictionary
+                    # Save dictionary
                     sample_data = {
                         "sample_id": f"{fold}_{t_name}_{batch_idx}",
                         "true_label": batch_unpacked.y.item(),
@@ -267,32 +266,27 @@ if __name__ == "__main__":
     parser.add_argument(
         "--checkpoint_dir",
         type=str,
-        required=True,
-        help="Directory containing model checkpoints"
+        required=True
     )
     parser.add_argument(
         "--data_dir",
         type=str,
-        required=True,
-        help="Directory containing data"
+        required=True
     )
     parser.add_argument(
         "--save_dir_importances",
         type=str,
-        required=True,
-        help="Base directory to save feature importances"
+        required=True
     )
     parser.add_argument(
         "--mc_dropout",
         action="store_true",
-        default=False,
-        help="Enable MC Dropout for stochastic explanations"
+        default=False
     )
     parser.add_argument(
         "--ood_data",
         action="store_true",
-        default=False,
-        help="Use OOD data targets instead of ID test data"
+        default=False
     )
 
     args = parser.parse_args()

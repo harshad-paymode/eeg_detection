@@ -226,7 +226,7 @@ def compute_uncertainty_metrics():
 
             all_preds = []
             
-            # Manual inference loop (Bypasses Lightning completely)
+            # Manual inference loop
             with torch.no_grad():
                 for p in range(50 if INITIAL_CONFIG['mc_dropout'] else 1):
                     pass_preds = []
@@ -253,9 +253,7 @@ def compute_uncertainty_metrics():
             preds_raw, preds = preds_raw.to(device), preds.to(device)
             ground_truth = torch.tensor([data.y.int().item() for data in dataset]).to(device)
 
-            # =========================================================
             # COMPUTE UNCERTAINTY METRICS
-            # =========================================================
             
             # ECE (Calibration)
             fold_ece = ece_metric(preds_raw, ground_truth).item()
@@ -350,9 +348,8 @@ def compute_uncertainty_metrics():
             summary_metrics[t_name]["epistemic_entropy"].append(fold_epistemic_entropy)
             summary_metrics[t_name]["aurc"].append(fold_aurc)
 
-    # =============================================================
+   
     # FINAL SUMMARY LOGGING (per target if OOD, once if ID)
-    # =============================================================
     for t_name, metrics in summary_metrics.items():
         log_name = f"summary_uncertainty_{t_name}" if OOD_DATA else "summary_uncertainty"
         wandb.init(project=project_name, name=log_name)

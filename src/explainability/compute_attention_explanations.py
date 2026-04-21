@@ -108,8 +108,8 @@ def compute_attention_explanations(args):
                 batch_size=1,
                 shuffle=False,
                 drop_last=False,
-                num_workers=0,          # FIX: Prevent IPC deadlocks
-                prefetch_factor=None,   # FIX: Must be None if num_workers=0
+                num_workers=0,          
+                prefetch_factor=None,   
             )
             
             config = ModelConfig(
@@ -123,9 +123,8 @@ def compute_attention_explanations(args):
                 edge_mask_type="object",
             )
             
-            # ================================================================
+            
             # BASELINE MODE: Global Averaging
-            # ================================================================
             if not mc_dropout:
                 edge_connection_dict_all = {}
                 edge_connection_dict_preictal = {}
@@ -145,7 +144,7 @@ def compute_attention_explanations(args):
                         pyg_batch=batch.batch,
                     )
                     
-                    # FIX: Safely extract scalars
+                    # Safely extract scalars
                     prediction = torch.argmax(explanation.prediction).item()
                     batch_y = batch.y.item()
                     
@@ -231,11 +230,10 @@ def compute_attention_explanations(args):
                 
                 print(f"  Baseline processing complete for {t_name} ({batch_count} batches)")
             
-            # ================================================================
+          
             # MC DROPOUT MODE: Save mask for every sample seperately
             # 1. Here only the masks are calculated for MC dropout
-            # 2. The predictions will be cross referenced from compute_uncertainty_matrix results using sample id
-            # ================================================================
+            # 2. The predictions will be cross referenced from compute_uncertainty_matrix results using sample id 
    
             else:        
                 save_path_fold = os.path.join(save_dir_att, f"fold_{i}")
@@ -245,13 +243,13 @@ def compute_attention_explanations(args):
                 for batch_idx, batch in enumerate(loader):
                     batch = batch.to(device)
                     
-                    # 1. Run Explainer EXACTLY ONCE
+                    # Run Explainer EXACTLY ONCE
                     explanation = explainer(
                         x=batch.x, edge_index=batch.edge_index, 
                         target=batch.y, pyg_batch=batch.batch
                     )
                     
-                    # FIX: Extract edge_index so downstream plotting script knows which edges to draw
+                    # Extract edge_index so downstream plotting script knows which edges to draw
                     edge_mask_base = explanation.edge_mask.detach().cpu().numpy()
                     edge_index = explanation.edge_index.detach().cpu().numpy()
                     
@@ -283,32 +281,27 @@ if __name__ == "__main__":
     parser.add_argument(
         "--checkpoint_dir",
         type=str,
-        required=True,
-        help="Directory containing model checkpoints"
+        required=True
     )
     parser.add_argument(
         "--data_dir",
         type=str,
-        required=True,
-        help="Directory containing data"
+        required=True
     )
     parser.add_argument(
         "--save_dir_att",
         type=str,
-        required=True,
-        help="Base directory to save attention explanations"
+        required=True
     )
     parser.add_argument(
         "--mc_dropout",
         action="store_true",
-        default=False,
-        help="Enable MC Dropout for stochastic explanations"
+        default=False
     )
     parser.add_argument(
         "--ood_data",
         action="store_true",
-        default=False,
-        help="Use OOD data targets instead of ID test data"
+        default=False
     )
     args = parser.parse_args()
     compute_attention_explanations(args)

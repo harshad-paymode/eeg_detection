@@ -1,5 +1,6 @@
 import os
 import warnings
+import shutil
 from argparse import ArgumentParser
 import numpy as np
 import lightning.pytorch as pl
@@ -24,7 +25,7 @@ parser.add_argument("--timestep", type=int, default=6)  # 6 seconds sample are c
 parser.add_argument("--ictal_overlap", type=int, default=0) # In the paper 5 seconds overlap is used.
 parser.add_argument("--inter_overlap", type=int, default=0) 
 parser.add_argument("--preictal_overlap", type=int, default=0)
-parser.add_argument("--seizure_lookback", type=int, default=600) # this time is considered for preictal periods.
+parser.add_argument("--seizure_lookback", type=int, default=600) # this time window is considered for preictal periods.
 parser.add_argument("--buffer_time", type=int, default=15) # buffer time is to discard the sample before and after seizures
 parser.add_argument("--sampling_freq", type=int, default=256)
 parser.add_argument("--downsampling_freq", type=int, default=60)
@@ -129,6 +130,29 @@ def generate_and_save_kfold_splits():
     )
 
     full_data_path = loader.get_datasets()[0]
+
+    #Seperate ID and OOD data
+    id_dir = "data/id_data/"
+    ood_dir = "data/ood_data/"  #this doesn't need to be divided furthere and will be used directly for testing
+    os.makedirs(id_dir, exist_ok=True)
+    os.makedirs(ood_dir, exist_ok=True)
+
+    ood_patients = ["chb22.pt", "chb23.pt", "chb24.pt"]
+
+    for file in os.listdir(full_data_path):
+        if not file.endswith(".pt"):
+            continue
+            
+        src_path = os.path.join(full_data_path, file)
+        
+        if file in ood_patients:
+            shutil.move(src_path, os.path.join(ood_dir, file))
+        else:
+            shutil.move(src_path, os.path.join(id_dir, file))
+            
+    # override full_data_path to only point to the ID directory
+    full_data_path = id_dir
+
     full_dataset = GraphDataset(full_data_path)
     
     label_array = np.array([data.y.item() for data in full_dataset]).reshape(-1, 1)
