@@ -19,7 +19,7 @@ seed_everything(42)
 logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
 logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 
-api_key_file = open("/eeg_detection/src/wandb_api_key.txt", "r")
+api_key_file = open("/kaggle/working/eeg_detection/src/wandb_api_key.txt", "r")
 API_KEY = api_key_file.read()
 api_key_file.close()
 os.environ["WANDB_API_KEY"] = API_KEY
