@@ -131,13 +131,13 @@ class GATv2Lightning(pl.LightningModule):
             class_weights = torch.ones(n_classes)
         self.class_weights = class_weights
         if self.classification_mode == "multiclass":
-            self.f1_score = F1Score(task="multiclass", num_classes=n_classes)
+            self.f1_score = F1Score(task="multiclass", num_classes=n_classes) #micro average - default
             self.loss = nn.CrossEntropyLoss(weight=class_weights)
             self.recall = Recall(
-                task="multiclass", num_classes=n_classes, threshold=0.5
+                task="multiclass", num_classes=n_classes, threshold=0.5  #micro average - default
             )
             self.specificity = Specificity(
-                task="multiclass", num_classes=n_classes, threshold=0.5
+                task="multiclass", num_classes=n_classes, threshold=0.5    #micro average - default
             )
             self.auroc = AUROC(task="multiclass", num_classes=n_classes)
         elif self.classification_mode == "binary":

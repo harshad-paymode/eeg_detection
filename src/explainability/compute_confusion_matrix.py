@@ -138,6 +138,7 @@ def compute_prediction_metrics():
         for t_name, t_dir, log_name in zip(current_targets, current_dirs, log_names):
             wandb.init(project=project_name, name=log_name, config=INITIAL_CONFIG)
             
+            #micro average - default
             conf_matrix_metric = MulticlassConfusionMatrix(3).to(device)
             specificity_metric = Specificity("multiclass", num_classes=3).to(device)
             recall_metric = Recall("multiclass", num_classes=3).to(device)

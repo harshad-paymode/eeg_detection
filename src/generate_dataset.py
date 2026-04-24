@@ -96,6 +96,7 @@ INITIAL_CONFIG = dict(
 )
 
 #Pre precossing and saving the data to GCP bucket.
+#The data was prepared for 10 folds training, the same data is passed for training.
 
 def generate_and_save_kfold_splits():
     """Generate and save train, val, and test splits for all folds."""
