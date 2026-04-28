@@ -109,7 +109,7 @@ def calibrate_all_folds(args):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--checkpoint_dir", type=str, default="saved_models/")
+    parser.add_argument("--checkpoint_dir", type=str, default="saved_models_dropout/")
     parser.add_argument("--fold_data_dir", type=str, default="data/saved_folds/")
     parser.add_argument("--save_dir", type=str, default="save_temperature/")
     parser.add_argument("--dropout_on", action="store_true", default=False) # Add this!
