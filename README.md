@@ -1,13 +1,12 @@
 # RUN PIPELINE
 
-````markdown
-## Run Pipeline
 
 - Use **Python 3.10** with **PyTorch 2.1.0** and **PyTorch Geometric 2.4.0**.
 - Create a Python virtual environment and install the required dependencies:
+  
   ```bash
   pip install -r requirements.txt
-````
+  ```
 
 * For GPU support, install the CUDA-enabled versions of **PyTorch** and **PyTorch Geometric** explicitly before running the project.
 
@@ -65,15 +64,6 @@
   * explainability outputs
   * gated edge and feature importance results
 
-```
-
-A slightly stronger GitHub version would also fix these small issues:
-- `requirents.txt` → `requirements.txt`
-- `compantibility` → `compatibility`
-- `wit GPU` → `with GPU`
-
-If you want, I can also turn this into a **more professional README-style setup section** with `Prerequisites`, `Installation`, `Preprocessing`, `Training`, and `Evaluation`.
-```
 
 # ARCHITECTURAL DESIGN
 
